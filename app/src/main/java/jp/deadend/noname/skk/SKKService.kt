@@ -28,6 +28,7 @@ import android.util.TypedValue
 import android.view.Display.DEFAULT_DISPLAY
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
@@ -1377,16 +1378,12 @@ class SKKService : InputMethodService() {
         }
         mIsEmojiPickerShown = true
         val emojiView = mEmojiPickerView!!
-        emojiView.parent?.let { (it as FrameLayout).removeView(emojiView) }
-
-        // キーボード+候補バーの高さ + 検索バー分を加算して絵文字ピッカーを表示
-        val searchBarHeight = (40 * resources.displayMetrics.density).toInt()
-        val height = keyboardHeight() + (mCandidatesViewContainer?.height ?: 0) + searchBarHeight
+        (emojiView.parent as? ViewGroup)?.removeView(emojiView)
+        val h = keyboardHeight()
         super.setInputView(emojiView)
-        // super.setInputView() がlayoutParamsを上書きするため、後から設定する
         emojiView.layoutParams =
-                emojiView.layoutParams.apply {
-                    this.height = if (height > 0) height else FrameLayout.LayoutParams.MATCH_PARENT
+                emojiView.layoutParams?.apply {
+                    height = if (h > 0) h else FrameLayout.LayoutParams.MATCH_PARENT
                 }
         setCandidatesViewShown(false)
     }
@@ -1404,7 +1401,7 @@ class SKKService : InputMethodService() {
         (view as? KeyboardView)?.let { inputView ->
             mInputView = inputView
             mInputView!!.apply {
-                parent?.let { (it as FrameLayout).removeView(view) }
+                (parent as? ViewGroup)?.removeView(view)
                 keyboard.resize(keyboardWidth(), keyboardHeight(), skkPrefs.keyPaddingBottom)
                 requestLayout()
             }
@@ -1413,7 +1410,7 @@ class SKKService : InputMethodService() {
         }
 
         val right = mScreenWidth - leftOffset - mInputView!!.keyboard.width
-        mInputView!!.parent?.let { (it as FrameLayout).setPadding(leftOffset, 0, right, 0) }
+        (mInputView!!.parent as? FrameLayout)?.setPadding(leftOffset, 0, right, 0)
         mCandidatesViewContainer?.parent?.let {
             (it as FrameLayout).setPadding(leftOffset, 0, right, 0)
         }

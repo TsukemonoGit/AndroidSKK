@@ -1,12 +1,9 @@
 package jp.deadend.noname.skk
 
 import android.content.Context
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -22,10 +19,8 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
     private val mSymbolContainer: LinearLayout
     private val mSymbolGrid: RecyclerView
     private val mSymbolCategoryTabs: TabLayout
-    private val mSearchEdit: EditText
     private var mCurrentSymbolCategory = 0
     private var mAllSymbols = SymbolData.categories
-    private var mIsSearching = false
 
     init {
         val view = LayoutInflater.from(context).inflate(R.layout.view_emoji_picker, this, true)
@@ -34,7 +29,6 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
         mSymbolContainer = view.findViewById(R.id.symbol_container)
         mSymbolGrid = view.findViewById(R.id.symbol_grid)
         mSymbolCategoryTabs = view.findViewById(R.id.symbol_category_tabs)
-        mSearchEdit = view.findViewById(R.id.emoji_search_edit)
 
         val backButton = view.findViewById<ImageButton>(R.id.emoji_back_button)
         backButton.setOnClickListener { mService?.hideEmojiPicker() }
@@ -71,30 +65,6 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
                     ->
                     mService?.commitTextSKK(symbol)
                 }
-
-        // Search functionality for symbols
-        mSearchEdit.addTextChangedListener(
-                object : TextWatcher {
-                    override fun beforeTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            count: Int,
-                            after: Int
-                    ) {}
-                    override fun onTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            before: Int,
-                            count: Int
-                    ) {}
-                    override fun afterTextChanged(s: Editable?) {
-                        val query = s?.toString()?.trim() ?: ""
-                        if (mSymbolContainer.visibility == View.VISIBLE) {
-                            filterSymbols(query)
-                        }
-                    }
-                }
-        )
     }
 
     fun setService(service: SKKService) {
@@ -104,17 +74,11 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
     private fun showEmoji() {
         mEmojiPickerView.visibility = View.VISIBLE
         mSymbolContainer.visibility = View.GONE
-        mSearchEdit.hint = context.getString(R.string.emoji_picker_search_hint)
     }
 
     private fun showSymbols() {
         mEmojiPickerView.visibility = View.GONE
         mSymbolContainer.visibility = View.VISIBLE
-        mSearchEdit.hint = context.getString(R.string.symbol_picker_search_hint)
-        val query = mSearchEdit.text?.toString()?.trim() ?: ""
-        if (query.isNotEmpty()) {
-            filterSymbols(query)
-        }
     }
 
     private fun setupSymbolCategoryTabs() {
@@ -130,39 +94,14 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
                                 spanCountForCategory(tab.position)
                         (mSymbolGrid.adapter as? SymbolAdapter)?.isHalfWidth =
                                 isHalfWidthCategory(tab.position)
-                        val query = mSearchEdit.text?.toString()?.trim() ?: ""
-                        if (query.isEmpty()) {
-                            (mSymbolGrid.adapter as? SymbolAdapter)?.updateData(
-                                    mAllSymbols[tab.position].symbols
-                            )
-                        } else {
-                            filterSymbols(query)
-                        }
+                        (mSymbolGrid.adapter as? SymbolAdapter)?.updateData(
+                                mAllSymbols[tab.position].symbols
+                        )
                     }
                     override fun onTabUnselected(tab: TabLayout.Tab) {}
                     override fun onTabReselected(tab: TabLayout.Tab) {}
                 }
         )
-    }
-
-    private fun filterSymbols(query: String) {
-        if (query.isEmpty()) {
-            (mSymbolGrid.adapter as? SymbolAdapter)?.updateData(
-                    mAllSymbols[mCurrentSymbolCategory].symbols
-            )
-            return
-        }
-
-        // Search across all categories
-        val results =
-                mAllSymbols
-                        .flatMap { category ->
-                            category.symbols.filter { symbol ->
-                                symbol.contains(query) || category.name.contains(query)
-                            }
-                        }
-                        .distinct()
-        (mSymbolGrid.adapter as? SymbolAdapter)?.updateData(results)
     }
 
     private fun isHalfWidthCategory(index: Int): Boolean {

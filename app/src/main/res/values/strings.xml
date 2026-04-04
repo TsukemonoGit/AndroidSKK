@@ -20,8 +20,6 @@
     <string name="label_tools_add_entry">エントリを追加</string>
     <string name="label_tools_import">インポート</string>
 
-    <string name="emoji_picker_search_hint">絵文字を検索</string>
-    <string name="symbol_picker_search_hint">記号を検索</string>
     <string name="label_tools_export">エクスポート</string>
     <string name="label_tools_clear">全消去</string>
     <string name="label_tools_no_entry_found">エントリがありません</string>

@@ -5,47 +5,28 @@
     android:orientation="vertical"
     android:background="?android:attr/colorBackground">
 
-    <!-- Search bar -->
+    <!-- Tab bar: Emoji / Symbols + Back button -->
     <LinearLayout
-        android:id="@+id/emoji_search_bar"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="4dp">
+        android:layout_height="36dp"
+        android:orientation="horizontal">
 
-        <EditText
-            android:id="@+id/emoji_search_edit"
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/emoji_tab_layout"
             android:layout_width="0dp"
-            android:layout_height="32dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:hint="@string/emoji_picker_search_hint"
-            android:singleLine="true"
-            android:textSize="14sp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:background="@drawable/popup_bg"
-            android:importantForAutofill="no"
-            android:inputType="text" />
+            android:background="?android:attr/colorBackground" />
 
         <ImageButton
             android:id="@+id/emoji_back_button"
             android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="4dp"
+            android:layout_height="match_parent"
             android:src="@drawable/ic_keyboard_return"
             android:contentDescription="@string/descr_close_button"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:scaleType="centerInside" />
     </LinearLayout>
-
-    <!-- Tab bar: Emoji / Symbols -->
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/emoji_tab_layout"
-        android:layout_width="match_parent"
-        android:layout_height="36dp"
-        android:background="?android:attr/colorBackground" />
 
     <!-- Content area -->
     <FrameLayout
