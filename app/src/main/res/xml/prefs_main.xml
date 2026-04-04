@@ -67,13 +67,6 @@
             android:targetClass="jp.deadend.noname.skk.SKKUserDictTool"
             android:targetPackage="jp.deadend.noname.skk" />
     </androidx.preference.Preference>
-    <androidx.preference.Preference app:title="@string/label_emoji_tool_activity">
-        <intent
-            android:action="android.intent.action.MAIN"
-            android:data="@string/dict_name_emoji"
-            android:targetClass="jp.deadend.noname.skk.SKKUserDictTool"
-            android:targetPackage="jp.deadend.noname.skk" />
-    </androidx.preference.Preference>
     <androidx.preference.Preference
         app:fragment="jp.deadend.noname.skk.SKKSettingsActivity$SettingsHardKeyFragment"
         app:title="@string/label_pref_hard_keyboard" />
@@ -94,13 +87,6 @@
             <intent
                 android:action="android.intent.action.MAIN"
                 android:data="@string/dict_name_ascii_recreate"
-                android:targetClass="jp.deadend.noname.skk.SKKUserDictTool"
-                android:targetPackage="jp.deadend.noname.skk" />
-        </androidx.preference.Preference>
-        <androidx.preference.Preference app:title="@string/label_emoji_tool_recreate">
-            <intent
-                android:action="android.intent.action.MAIN"
-                android:data="@string/dict_name_emoji_recreate"
                 android:targetClass="jp.deadend.noname.skk.SKKUserDictTool"
                 android:targetPackage="jp.deadend.noname.skk" />
         </androidx.preference.Preference>

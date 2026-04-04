@@ -60,10 +60,7 @@ class SKKDictManager : AppCompatActivity() {
             }
 
     private val commonDictList: List<Tuple<String, String>> by lazy {
-        listOf(
-                Tuple("ユーザー辞書", getString(R.string.dict_name_user)),
-                Tuple("絵文字辞書", getString(R.string.dict_name_emoji))
-        ) +
+        listOf(Tuple("ユーザー辞書", getString(R.string.dict_name_user))) +
                 listOf(
                                 "lisplike",
                                 "L+",
@@ -243,15 +240,8 @@ class SKKDictManager : AppCompatActivity() {
                                             )
                                             .show(supportFragmentManager, "dialog")
                                 }
-                                // リセット後は絵文字辞書を未インストール状態（/プレフィックス）で表示
-                                val resetList =
-                                        commonDictList.map { tuple ->
-                                            if (tuple.value == getString(R.string.dict_name_emoji))
-                                                    Tuple(tuple.key, "/${tuple.value}")
-                                            else tuple
-                                        }
-                                mAdapter.submitList(resetList)
-                                mDictList = resetList
+                                mAdapter.submitList(commonDictList)
+                                mDictList = commonDictList
                             }
 
                             override fun onNegativeClick() {}

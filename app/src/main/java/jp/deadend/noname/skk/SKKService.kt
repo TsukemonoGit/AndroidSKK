@@ -155,7 +155,6 @@ class SKKService : InputMethodService() {
         }
     private lateinit var mUserDict: SKKUserDictionary
     private lateinit var mAsciiDict: SKKUserDictionary
-    private lateinit var mEmojiDict: SKKUserDictionary
 
     internal val isHiragana: Boolean
         get() = kanaState === SKKHiraganaState
@@ -266,7 +265,7 @@ class SKKService : InputMethodService() {
                 PreferenceManager.getDefaultSharedPreferences(this)
                         .getString(
                                 getString(R.string.pref_dict_order),
-                                "ユーザー辞書/${getString(R.string.dict_name_user)}/絵文字辞書/${getString(R.string.dict_name_emoji)}/"
+                                "ユーザー辞書/${getString(R.string.dict_name_user)}/"
                         )
         dLog("dict pref: $prefVal")
         if (!prefVal.isNullOrEmpty()) {
@@ -275,7 +274,6 @@ class SKKService : InputMethodService() {
                 when (vals[i]) {
                     getString(R.string.dict_name_user) -> result.add(mUserDict)
                     // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
-                    getString(R.string.dict_name_emoji) -> result.add(mEmojiDict)
                     else ->
                             SKKDictionary.newInstance(
                                             dd + "/" + vals[i],
@@ -349,9 +347,8 @@ class SKKService : InputMethodService() {
         }
         mUserDict = openUserDictionary(getString(R.string.dict_name_user), isASCII = false)
         mAsciiDict = openUserDictionary(getString(R.string.dict_name_ascii), isASCII = true)
-        mEmojiDict = openUserDictionary(getString(R.string.dict_name_emoji), isASCII = false)
         val dictList = openDictionaries()
-        if (dictList.minus(mUserDict).minus(mEmojiDict).isEmpty()) {
+        if (dictList.minus(mUserDict).isEmpty()) {
             val intent =
                     Intent(applicationContext, SKKDictManager::class.java)
                             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -370,7 +367,7 @@ class SKKService : InputMethodService() {
             )
         }
 
-        mEngine = SKKEngine(this@SKKService, dictList, mUserDict, mAsciiDict, mEmojiDict)
+        mEngine = SKKEngine(this@SKKService, dictList, mUserDict, mAsciiDict)
 
         mSpeechRecognizer.setRecognitionListener(
                 object : RecognitionListener {
@@ -1070,8 +1067,6 @@ class SKKService : InputMethodService() {
     fun googleTransliterate() = mEngine.googleTransliterate()
 
     fun symbolCandidates(sequential: Boolean) = mEngine.symbolCandidates(sequential)
-
-    fun emojiCandidates(sequential: Boolean) = mEngine.emojiCandidates(sequential)
 
     fun pickCandidatesViewManually(index: Int, unregister: Boolean = false) =
             mEngine.pickCandidatesViewManually(index, unregister)
