@@ -109,7 +109,7 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
     }
 
     private fun spanCountForCategory(index: Int): Int {
-        return if (isHalfWidthCategory(index)) 10 else 6
+        return if (isHalfWidthCategory(index)) 10 else 8
     }
 
     private class SymbolAdapter(
@@ -135,7 +135,7 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         (48 * resources.displayMetrics.density).toInt()
                                 )
-                        textSize = 22f
+                        textSize = 20f
                         gravity = android.view.Gravity.CENTER
                         setBackgroundResource(android.R.drawable.list_selector_background)
                         isClickable = true
@@ -147,8 +147,8 @@ class EmojiPickerKeyboardView(context: Context) : FrameLayout(context) {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val symbol = symbols[position]
             holder.textView.text = symbol
-            val cellHeight = if (isHalfWidth) 38 else 48
-            val textSz = if (isHalfWidth) 18f else 22f
+            val cellHeight = 28
+            val textSz = 20f
             holder.textView.layoutParams.height =
                     (cellHeight * holder.textView.resources.displayMetrics.density).toInt()
             holder.textView.textSize = textSz
