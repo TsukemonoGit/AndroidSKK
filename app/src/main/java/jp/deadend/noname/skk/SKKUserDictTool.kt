@@ -25,6 +25,7 @@ import jdbm.btree.BTree
 import jdbm.helper.StringComparator
 import jdbm.helper.Tuple
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
+import jp.deadend.noname.dialog.DictEntryDialogFragment
 import jp.deadend.noname.dialog.SimpleMessageDialogFragment
 import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 import kotlinx.coroutines.CancellationException
@@ -325,6 +326,37 @@ class SKKUserDictTool : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
+            R.id.menu_user_dict_tool_add -> {
+                val dialog = DictEntryDialogFragment.newInstance("エントリの追加")
+                dialog.setListener(object : DictEntryDialogFragment.Listener {
+                    override fun onPositiveClick(key: String, value: String) {
+                        try {
+                            if (openUserDict()) {
+                                mBtree?.let { btree ->
+                                    val oldVal = btree.find(key)
+                                    val newVal = if (oldVal != null && oldVal.contains("/$value/")) {
+                                        oldVal // already exists
+                                    } else if (oldVal != null) {
+                                        "/$value" + oldVal // prepend new candidate
+                                    } else {
+                                        "/$value/"
+                                    }
+                                    btree.insert(key, newVal, true)
+                                    mRecMan?.commit()
+                                }
+                            }
+                            closeUserDict()
+                        } catch (e: Exception) {
+                            Log.e("SKK", "UserDictTool error adding entry: ${e.message}")
+                        }
+                        updateListItems()
+                    }
+                    override fun onNegativeClick() {}
+                })
+                dialog.show(supportFragmentManager, "add_entry")
+                return true
+            }
+
             R.id.menu_user_dict_tool_import -> {
                 mInFileLauncher = true
                 importFileLauncher.launch(arrayOf("*/*"))
