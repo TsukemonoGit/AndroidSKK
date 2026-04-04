@@ -8,8 +8,8 @@ android {
     defaultConfig {
         applicationId "jp.deadend.noname.skk"
         minSdkVersion 30
-        versionCode 70
-        versionName "3.7.21"
+        versionCode 71
+        versionName "3.7.22"
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
