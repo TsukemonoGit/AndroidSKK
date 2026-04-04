@@ -1380,11 +1380,18 @@ class SKKService : InputMethodService() {
         val emojiView = mEmojiPickerView!!
         (emojiView.parent as? ViewGroup)?.removeView(emojiView)
         val h = keyboardHeight()
+        val bottomPadding = if (h > 0) h * skkPrefs.keyPaddingBottom / 100 else 0
         super.setInputView(emojiView)
         emojiView.layoutParams =
                 emojiView.layoutParams?.apply {
-                    height = if (h > 0) h else FrameLayout.LayoutParams.MATCH_PARENT
+                    height = if (h > 0) h + bottomPadding else FrameLayout.LayoutParams.MATCH_PARENT
                 }
+        emojiView.setPadding(
+                emojiView.paddingLeft,
+                emojiView.paddingTop,
+                emojiView.paddingRight,
+                bottomPadding
+        )
         setCandidatesViewShown(false)
     }
 
