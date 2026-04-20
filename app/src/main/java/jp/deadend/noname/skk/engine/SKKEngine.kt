@@ -414,11 +414,16 @@ class SKKEngine(
                 if (mOkurigana.isEmpty()) {
                     // [修正1] 送りなし変換中に濁点・半濁点ボタンが押された場合:
                     // mKanjiKey 末尾の仮名を送りがなとして濁音化し、変換をやりなおす。
-                    if (type != LAST_CONVERSION_DAKUTEN && type != LAST_CONVERSION_HANDAKUTEN)
+                    if (type != LAST_CONVERSION_DAKUTEN && type != LAST_CONVERSION_HANDAKUTEN &&
+                            type != LAST_CONVERSION_SMALL && type != LAST_CONVERSION_TRANS)
                             return
                     if (mKanjiKey.isEmpty()) return
                     val lastChar = mKanjiKey.last().toString()
-                    val newOkurigana = RomajiConverter.convertLastChar(lastChar, type).second
+
+                    // タップ(SMALL)でも濁音化できるように TRANS に振る
+                    val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                    val newOkurigana = RomajiConverter.convertLastChar(lastChar, effectiveType).second
+
                     if (newOkurigana == lastChar) return // 変換不可（あ行等）
                     mKanjiKey.deleteCharAt(mKanjiKey.length - 1)
                     mKanjiKey.append(RomajiConverter.getConsonantForVoiced(newOkurigana))
@@ -427,7 +432,10 @@ class SKKEngine(
                     return
                 }
                 val okurigana = mOkurigana // ▼合い (okurigana = い)
-                val newOkurigana = RomajiConverter.convertLastChar(okurigana, type).second
+
+                // 送りありでもタップで濁音化等を可能にする
+                val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                val newOkurigana = RomajiConverter.convertLastChar(okurigana, effectiveType).second
 
                 if (type == LAST_CONVERSION_SHIFT) {
                     handleCancel() // ▽あ (mOkurigana = null)
@@ -439,6 +447,10 @@ class SKKEngine(
                 // 例外: 送りがなが「っ」になる場合は，どのみち必ずt段の音なのでmKanjiKeyはそのまま
                 // 「ゃゅょ」で送りがなが始まる場合はないはず
                 if (type != LAST_CONVERSION_SMALL) {
+                    mKanjiKey.deleteCharAt(mKanjiKey.length - 1)
+                    mKanjiKey.append(RomajiConverter.getConsonantForVoiced(newOkurigana))
+                } else if (newOkurigana != okurigana) {
+                    // タップで濁音化等が起きた場合はキーも更新する
                     mKanjiKey.deleteCharAt(mKanjiKey.length - 1)
                     mKanjiKey.append(RomajiConverter.getConsonantForVoiced(newOkurigana))
                 }
@@ -456,15 +468,19 @@ class SKKEngine(
             // 両ケースとも: key末尾の子音を新しい濁音子音に置き換えて再変換する。
             isRegistering &&
                     mRegistrationStack.peekFirst()?.entry?.isEmpty() == true &&
-                    (type == LAST_CONVERSION_DAKUTEN || type == LAST_CONVERSION_HANDAKUTEN) -> {
+                    (type == LAST_CONVERSION_DAKUTEN || type == LAST_CONVERSION_HANDAKUTEN ||
+                            type == LAST_CONVERSION_SMALL || type == LAST_CONVERSION_TRANS) -> {
                 val regInfo = mRegistrationStack.peekFirst() ?: return
                 val key = regInfo.key
                 if (key.isEmpty()) return
-                // 送りがな設定済みならそれを濁音化、なければ key 末尾の仮名を濁音化
+                // 送りがな設定済みならそれを濁音化、なければ key 末尾의 仮名を濁音化
                 val targetChar =
                         if (regInfo.okurigana.isNotEmpty()) regInfo.okurigana
                         else key.last().toString()
-                val newOkurigana = RomajiConverter.convertLastChar(targetChar, type).second
+
+                // タップ(SMALL)でも濁点等を扱えるように TRANS に振る
+                val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                val newOkurigana = RomajiConverter.convertLastChar(targetChar, effectiveType).second
                 if (newOkurigana == targetChar) return // 変換不可
                 mRegistrationStack.removeFirst()
                 mKanjiKey.setLength(0)
@@ -803,6 +819,16 @@ class SKKEngine(
         ic.deleteSurroundingText(0, wac.length)
     }
 
+    private fun deleteSuffixASCII(expected: String): Boolean {
+        val ic = mService.currentInputConnection ?: return false
+        val tac = ic.getTextAfterCursor(ASCII_WORD_MAX_LENGTH, 0) ?: return false
+        val wac = tac.split(Regex("[^a-zA-Z0-9]")).first()
+        return if (expected.startsWith(wac)) {
+            ic.deleteSurroundingText(0, wac.length)
+            true
+        } else false
+    }
+
     private fun registerStart(str: String) {
         mRegistrationStack.addFirst(RegistrationInfo(str, mOkurigana))
         reset()
@@ -824,7 +850,7 @@ class SKKEngine(
                     }\")"
                         } else it
                     }
-            // if (isPersonalizedLearning) のチェックはこの場合しないでおく
+            // if (isPersonalizedLearning) { のチェックはこの場合しないでおく
             mUserDict.addEntry(regInfo.key, regEntryStr, regInfo.okurigana)
             (regInfo.entry.toString() + regInfo.okurigana).let {
                 commitTextSKK(
