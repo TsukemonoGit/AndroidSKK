@@ -369,7 +369,14 @@ class SKKEngine(
         return str
     }
 
-    // 小文字大文字変換，濁音，半濁音に使う
+    // changeLastChar 関数の完全な修正版 rev.2
+    // 変更点:
+    //   1. state === SKKChooseState ブランチ: mOkurigana.isEmpty() 時に濁点・半濁点を処理
+    //   2. 新規条件 isRegistering + entry.isEmpty():
+    //      - regInfo.okurigana.isEmpty() のケース: key末尾の仮名を濁音化して送りがなにする
+    //      - regInfo.okurigana.isNotEmpty() のケース: 送りがな自体を濁音化し key末尾子音を置換する
+    //      （前回: okurigana.isNotEmpty() で return していたため "つなk" 等のケースが未対応だった）
+
     fun changeLastChar(type: String) {
         when {
             state === SKKKanjiState && mComposing.isEmpty() && mKanjiKey.isNotEmpty() -> {
@@ -404,7 +411,21 @@ class SKKEngine(
                 narrowCandidates(hint.toString())
             }
             state === SKKChooseState -> {
-                if (mOkurigana.isEmpty()) return
+                if (mOkurigana.isEmpty()) {
+                    // [修正1] 送りなし変換中に濁点・半濁点ボタンが押された場合:
+                    // mKanjiKey 末尾の仮名を送りがなとして濁音化し、変換をやりなおす。
+                    if (type != LAST_CONVERSION_DAKUTEN && type != LAST_CONVERSION_HANDAKUTEN)
+                            return
+                    if (mKanjiKey.isEmpty()) return
+                    val lastChar = mKanjiKey.last().toString()
+                    val newOkurigana = RomajiConverter.convertLastChar(lastChar, type).second
+                    if (newOkurigana == lastChar) return // 変換不可（あ行等）
+                    mKanjiKey.deleteCharAt(mKanjiKey.length - 1)
+                    mKanjiKey.append(RomajiConverter.getConsonantForVoiced(newOkurigana))
+                    mOkurigana = newOkurigana
+                    conversionStart(mKanjiKey)
+                    return
+                }
                 val okurigana = mOkurigana // ▼合い (okurigana = い)
                 val newOkurigana = RomajiConverter.convertLastChar(okurigana, type).second
 
@@ -423,6 +444,34 @@ class SKKEngine(
                 }
                 mOkurigana = newOkurigana
                 conversionStart(mKanjiKey) // 変換やりなおし
+            }
+            // [修正2] 辞書登録モードかつエントリが未入力（変換候補なしで自動遷移したケース）での
+            // 濁点・半濁点処理: 登録スタックから元キーを復元し、濁音化して変換を再試行する。
+            //
+            // ケース A: regInfo.okurigana が空（送りなし登録）
+            //   例: key="あか", okurigana="" → targetChar="か" → "が", key="あg"
+            // ケース B: regInfo.okurigana が非空（送りあり登録で候補なし）
+            //   例: key="つなk", okurigana="か" → targetChar="か" → "が", key="つなg"
+            //
+            // 両ケースとも: key末尾の子音を新しい濁音子音に置き換えて再変換する。
+            isRegistering &&
+                    mRegistrationStack.peekFirst()?.entry?.isEmpty() == true &&
+                    (type == LAST_CONVERSION_DAKUTEN || type == LAST_CONVERSION_HANDAKUTEN) -> {
+                val regInfo = mRegistrationStack.peekFirst() ?: return
+                val key = regInfo.key
+                if (key.isEmpty()) return
+                // 送りがな設定済みならそれを濁音化、なければ key 末尾の仮名を濁音化
+                val targetChar =
+                        if (regInfo.okurigana.isNotEmpty()) regInfo.okurigana
+                        else key.last().toString()
+                val newOkurigana = RomajiConverter.convertLastChar(targetChar, type).second
+                if (newOkurigana == targetChar) return // 変換不可
+                mRegistrationStack.removeFirst()
+                mKanjiKey.setLength(0)
+                mKanjiKey.append(key.dropLast(1))
+                mKanjiKey.append(RomajiConverter.getConsonantForVoiced(newOkurigana))
+                mOkurigana = newOkurigana
+                conversionStart(mKanjiKey)
             }
             mComposing.isEmpty() && mKanjiKey.isEmpty() -> {
                 val ic = mService.currentInputConnection ?: return
