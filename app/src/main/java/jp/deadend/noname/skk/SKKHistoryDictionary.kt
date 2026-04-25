@@ -23,7 +23,16 @@ private constructor(
 
     fun addHistory(key: String, value: String) {
         safeRun {
-            mBTree?.insert(key, value, true)
+            val existing = mBTree?.find(key)
+            val newList = if (existing != null) {
+                // スラッシュ区切りで保持し、最新のものを先頭にする（重複排除、上限20件）
+                val currentList = existing.split("/").filter { it.isNotEmpty() && it != value }
+                val updatedList = listOf(value) + currentList
+                "/" + updatedList.take(20).joinToString("/") + "/"
+            } else {
+                "/$value/"
+            }
+            mBTree?.insert(key, newList, true)
             mRecMan?.commit()
         }
     }
@@ -37,6 +46,21 @@ private constructor(
         }
     }
 
+    fun clear() {
+        safeRun {
+            val tuple = jdbm.helper.Tuple<String, String>()
+            val browser = mBTree?.browse() ?: return@safeRun
+            val keys = mutableListOf<String>()
+            while (browser.getNext(tuple)) {
+                keys.add(tuple.key)
+            }
+            for (key in keys) {
+                mBTree?.remove(key)
+            }
+            mRecMan?.commit()
+        }
+    }
+
     fun close() {
         safeRun { mRecMan?.commit() }
         mRecMan = null
@@ -45,6 +69,16 @@ private constructor(
 
     fun reopen() {
         close()
+        openDB(mDictFile, mBtreeName).let {
+            mRecMan = it.first
+            mBTree = it.second
+        }
+    }
+
+    fun recreate() {
+        Log.e("SKK", "HistoryDict force recreate called.")
+        close()
+        java.io.File("$mDictFile.db").delete()
         openDB(mDictFile, mBtreeName).let {
             mRecMan = it.first
             mBTree = it.second

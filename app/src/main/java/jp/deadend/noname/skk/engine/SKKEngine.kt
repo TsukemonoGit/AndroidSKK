@@ -1043,22 +1043,29 @@ class SKKEngine(
 
         if (list.isEmpty()) dLog("Dictionary: Can't find Kanji for $key")
 
-        // 変換履歴がある場合、最後に選択した候補を先頭に移動する
+        // 変換履歴がある場合、一番最後に選択した順（履歴の先頭から順）にリストの先頭に持っていく
         val historyValue = mHistoryDict?.getHistory(key)
-        if (historyValue != null) {
-            val historyAnnotated = removeAnnotation(historyValue)
-            val idx = list.indexOfFirst { removeAnnotation(it) == historyAnnotated }
-            if (idx > 0) {
-                // すでにリストにある場合は先頭へ移動
-                val moved = list.toMutableList()
-                moved.add(0, moved.removeAt(idx))
-                return moved
-            } else if (idx < 0 && historyValue.isNotEmpty()) {
-                // リストにない場合（辞書が変わった等）は先頭に追加
-                val moved = list.toMutableList()
-                moved.add(0, historyValue)
-                return moved
+        if (!historyValue.isNullOrEmpty()) {
+            val historyList = historyValue.split("/").filter { it.isNotEmpty() }
+            val moved = list.toMutableList()
+            // historyList は [最新, 2番目, 3番目...] の順
+            // リストの先頭から順に「リストに存在すれば前に移動、なければ追加」していく
+            // ただし、追加・移動先は順次インデックスを進める (0, 1, 2...)
+            var insertPos = 0
+            for (hValue in historyList) {
+                val hAnnotated = removeAnnotation(hValue)
+                val idx = moved.indexOfFirst { removeAnnotation(it) == hAnnotated }
+                if (idx >= 0) {
+                    if (idx != insertPos) {
+                        moved.add(insertPos, moved.removeAt(idx))
+                    }
+                    insertPos++
+                } else {
+                    moved.add(insertPos, hValue)
+                    insertPos++
+                }
             }
+            return moved
         }
 
         return list

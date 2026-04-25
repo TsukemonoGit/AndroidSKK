@@ -19,6 +19,7 @@
     <string name="label_dict_manager_add">辞書を追加</string>
     <string name="label_dict_manager_input_name">辞書の名前を入力</string>
 
+    <string name="label_tools_add">追加</string>
     <string name="label_tools_add_entry">エントリを追加</string>
     <string name="label_tools_import">インポート</string>
 

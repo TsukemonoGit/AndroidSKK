@@ -2,7 +2,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/menu_userdict_tool_add"
+        android:title="@string/label_tools_add"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/menu_userdict_tool_import"
+        android:title="@string/label_tools_import"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/menu_userdict_tool_export"
         android:title="@string/label_tools_export"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_userdict_tool_clear"
+        android:title="@string/label_tools_clear"
         app:showAsAction="never" />
 </menu>

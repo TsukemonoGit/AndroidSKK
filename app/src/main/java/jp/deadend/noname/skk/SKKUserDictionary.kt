@@ -151,6 +151,21 @@ private constructor(
         mOldKey = ""
     }
 
+    fun clear() {
+        safeRun {
+            val tuple = jdbm.helper.Tuple<String, String>()
+            val browser = mBTree?.browse() ?: return@safeRun
+            val keys = mutableListOf<String>()
+            while (browser.getNext(tuple)) {
+                keys.add(tuple.key)
+            }
+            for (key in keys) {
+                mBTree?.remove(key)
+            }
+            mRecMan?.commit()
+        }
+    }
+
     override fun close() {
         safeRun { mRecMan?.commit() }
         super.close()
@@ -162,6 +177,16 @@ private constructor(
 
     fun reopen() {
         close()
+        openDB(mDictFile, mBtreeName).let {
+            mRecMan = it.first
+            mBTree = it.second
+        }
+    }
+
+    fun recreate() {
+        Log.e("SKK", "UserDict force recreate called.")
+        close()
+        java.io.File("$mDictFile.db").delete()
         openDB(mDictFile, mBtreeName).let {
             mRecMan = it.first
             mBTree = it.second
