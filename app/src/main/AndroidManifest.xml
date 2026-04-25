@@ -53,6 +53,14 @@
             android:launchMode="singleInstance"
             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
         <activity
+            android:name=".SKKHistoryDictTool"
+            android:label="@string/label_history_tool_activity"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+        <activity
+            android:name=".SKKUserDictionaryTool"
+            android:label="@string/label_userdict_tool_activity"
+            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+        <activity
             android:name=".SKKDictManager"
             android:label="@string/label_dict_manager_activity"
             android:launchMode="singleInstance"

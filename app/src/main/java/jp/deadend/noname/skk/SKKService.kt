@@ -156,6 +156,7 @@ class SKKService : InputMethodService() {
         }
     private lateinit var mUserDict: SKKUserDictionary
     private lateinit var mAsciiDict: SKKUserDictionary
+    private var mHistoryDict: SKKHistoryDictionary? = null
 
     internal val isHiragana: Boolean
         get() = kanaState === SKKHiraganaState
@@ -348,6 +349,10 @@ class SKKService : InputMethodService() {
         }
         mUserDict = openUserDictionary(getString(R.string.dict_name_user), isASCII = false)
         mAsciiDict = openUserDictionary(getString(R.string.dict_name_ascii), isASCII = true)
+        mHistoryDict = SKKHistoryDictionary.newInstance(
+                filesDir.absolutePath + "/skk_historydict",
+                "skk_historydict"
+        )
         val dictList = openDictionaries()
         if (dictList.minus(mUserDict).isEmpty()) {
             val intent =
@@ -368,7 +373,7 @@ class SKKService : InputMethodService() {
             )
         }
 
-        mEngine = SKKEngine(this@SKKService, dictList, mUserDict, mAsciiDict)
+        mEngine = SKKEngine(this@SKKService, dictList, mUserDict, mAsciiDict, mHistoryDict)
 
         mSpeechRecognizer.setRecognitionListener(
                 object : RecognitionListener {

@@ -5,6 +5,7 @@ import com.android.volley.toolbox.JsonArrayRequest
 import com.android.volley.toolbox.Volley
 import java.util.ArrayDeque
 import jp.deadend.noname.skk.SKKDictionaryInterface
+import jp.deadend.noname.skk.SKKHistoryDictionary
 import jp.deadend.noname.skk.SKKService
 import jp.deadend.noname.skk.SKKUserDictionary
 import jp.deadend.noname.skk.dLog
@@ -30,7 +31,8 @@ class SKKEngine(
         private val mService: SKKService,
         private var mDictList: List<SKKDictionaryInterface>,
         private val mUserDict: SKKUserDictionary,
-        private val mASCIIDict: SKKUserDictionary
+        private val mASCIIDict: SKKUserDictionary,
+        private val mHistoryDict: SKKHistoryDictionary?
 ) {
     var state: SKKState = SKKHiraganaState
         private set
@@ -103,6 +105,7 @@ class SKKEngine(
             mUserDict -> {
                 mUserDict.reopen()
                 mASCIIDict.reopen() // ASCII は mDictList に入れていない
+                mHistoryDict?.reopen()
             }
             else -> dict.close()
         }
@@ -133,6 +136,7 @@ class SKKEngine(
     fun closeUserDict() {
         mUserDict.close()
         mASCIIDict.close()
+        mHistoryDict?.close()
     }
 
     fun processKey(keyCode: Int) = state.processKey(this, keyCode)
@@ -1039,6 +1043,24 @@ class SKKEngine(
 
         if (list.isEmpty()) dLog("Dictionary: Can't find Kanji for $key")
 
+        // 変換履歴がある場合、最後に選択した候補を先頭に移動する
+        val historyValue = mHistoryDict?.getHistory(key)
+        if (historyValue != null) {
+            val historyAnnotated = removeAnnotation(historyValue)
+            val idx = list.indexOfFirst { removeAnnotation(it) == historyAnnotated }
+            if (idx > 0) {
+                // すでにリストにある場合は先頭へ移動
+                val moved = list.toMutableList()
+                moved.add(0, moved.removeAt(idx))
+                return moved
+            } else if (idx < 0 && historyValue.isNotEmpty()) {
+                // リストにない場合（辞書が変わった等）は先頭に追加
+                val moved = list.toMutableList()
+                moved.add(0, historyValue)
+                return moved
+            }
+        }
+
         return list
     }
 
@@ -1088,8 +1110,11 @@ class SKKEngine(
         }
 
         if (isPersonalizedLearning) {
-            mUserDict.addEntry(mKanjiKey.toString(), candidateList[index], mOkurigana)
-            // ユーザー辞書登録時はエスケープや注釈を消さない
+            // 変換履歴は historyDict に保存（ユーザー辞書とは分離）
+            // value の形式は SKKUserDictionary.addEntry と合わせて "/$value/[okurigana/$value/]/" 相当を
+            // historyDict では key -> value（単一の最後の選択候補）として単純保存する
+            val historyValue = candidateList[index]
+            mHistoryDict?.addHistory(mKanjiKey.toString(), historyValue)
         }
 
         if (backspace) {

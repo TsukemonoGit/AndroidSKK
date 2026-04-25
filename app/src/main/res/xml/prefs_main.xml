@@ -53,11 +53,16 @@
             android:targetClass="jp.deadend.noname.skk.SKKDictManager"
             android:targetPackage="jp.deadend.noname.skk" />
     </androidx.preference.Preference>
-    <androidx.preference.Preference app:title="@string/label_dict_tool_activity">
+    <androidx.preference.Preference app:title="@string/label_history_tool_activity">
         <intent
             android:action="android.intent.action.MAIN"
-            android:data="@string/dict_name_user"
-            android:targetClass="jp.deadend.noname.skk.SKKUserDictTool"
+            android:targetClass="jp.deadend.noname.skk.SKKHistoryDictTool"
+            android:targetPackage="jp.deadend.noname.skk" />
+    </androidx.preference.Preference>
+    <androidx.preference.Preference app:title="@string/label_userdict_tool_activity">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="jp.deadend.noname.skk.SKKUserDictionaryTool"
             android:targetPackage="jp.deadend.noname.skk" />
     </androidx.preference.Preference>
     <androidx.preference.Preference app:title="@string/label_ascii_tool_activity">

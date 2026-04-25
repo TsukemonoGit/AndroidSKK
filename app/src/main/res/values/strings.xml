@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="label_history_tool_activity">変換履歴管理ツール</string>
+    <string name="label_userdict_tool_activity">ユーザー辞書管理ツール</string>
     <string name="ime_name">SKK for Android</string>
 
     <string name="label_pref_activity">SKK for Androidの設定</string>
