@@ -12,7 +12,7 @@ import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 /** 変換履歴管理専用のUI（履歴のみを表示・編集） */
 class SKKHistoryDictTool : AppCompatActivity() {
     private lateinit var binding: ActivityUserDictToolBinding
-    private lateinit var historyDict: SKKHistoryDictionary
+    private var historyDict: SKKHistoryDictionary? = null
     private val entryList = mutableListOf<Pair<String, String>>()
     private val filteredList = mutableListOf<Pair<String, String>>()
     private lateinit var adapter: android.widget.ArrayAdapter<String>
@@ -23,37 +23,36 @@ class SKKHistoryDictTool : AppCompatActivity() {
         setContentView(binding.root)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
-            val bars = windowInsets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
+            val bars =
+                    windowInsets.getInsets(
+                            WindowInsetsCompat.Type.systemBars() or
+                                    WindowInsetsCompat.Type.displayCutout()
+                    )
             view.updatePadding(
-                left = bars.left, top = bars.top,
-                right = bars.right, bottom = bars.bottom
+                    left = bars.left,
+                    top = bars.top,
+                    right = bars.right,
+                    bottom = bars.bottom
             )
             WindowInsetsCompat.CONSUMED
         }
 
         // DB初期化
         historyDict =
-                SKKHistoryDictionary.newInstance(
+                SKKHistoryDictionary.getInstance(
                         filesDir.absolutePath + "/skk_historydict",
                         "skk_historydict"
                 )
-                        ?: return
+        if (historyDict == null) {
+            return
+        }
 
-        // 履歴全件取得
-        loadHistoryList()
-        filteredList.addAll(entryList)
-
-        // ListViewに表示
+        // ListView初期化
         adapter =
                 android.widget.ArrayAdapter(
                         this,
                         android.R.layout.simple_list_item_1,
-                        filteredList.map { 
-                            val formattedValue = it.second.split("/").filter { s -> s.isNotEmpty() }.joinToString(", ")
-                            "${it.first}  $formattedValue" 
-                        }
+                        mutableListOf<String>()
                 )
         binding.userDictToolList.adapter = adapter
         binding.userDictToolList.emptyView = binding.EmptyListItem
@@ -79,7 +78,7 @@ class SKKHistoryDictTool : AppCompatActivity() {
             dialog.setListener(
                     object : jp.deadend.noname.dialog.ConfirmationDialogFragment.Listener {
                         override fun onPositiveClick() {
-                            historyDict.removeHistory(item.first)
+                            historyDict?.removeHistory(item.first)
                             loadHistoryList()
                             filterList(binding.userDictToolSearch.query?.toString())
                         }
@@ -94,6 +93,13 @@ class SKKHistoryDictTool : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 画面に戻るたびに最新の履歴を読み込む
+        loadHistoryList()
+        filterList(binding.userDictToolSearch.query?.toString())
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_historydict_tool, menu)
         return super.onCreateOptionsMenu(menu)
@@ -106,13 +112,14 @@ class SKKHistoryDictTool : AppCompatActivity() {
                 return true
             }
             R.id.menu_historydict_tool_clear -> {
-                val dialog = jp.deadend.noname.dialog.ConfirmationDialogFragment.newInstance(
-                        getString(R.string.message_tools_confirm_clear)
-                )
+                val dialog =
+                        jp.deadend.noname.dialog.ConfirmationDialogFragment.newInstance(
+                                getString(R.string.message_tools_confirm_clear)
+                        )
                 dialog.setListener(
                         object : jp.deadend.noname.dialog.ConfirmationDialogFragment.Listener {
                             override fun onPositiveClick() {
-                                historyDict.clear()
+                                historyDict?.clear()
                                 loadHistoryList()
                                 filterList(binding.userDictToolSearch.query?.toString())
                             }
@@ -128,19 +135,9 @@ class SKKHistoryDictTool : AppCompatActivity() {
 
     private fun loadHistoryList() {
         entryList.clear()
-        val btree = historyDict.mBTree ?: return
-        try {
-            val tuple = jdbm.helper.Tuple<String, String>()
-            val browser = btree.browse()
-            while (browser.getNext(tuple)) {
-                entryList.add(tuple.key to tuple.value)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("SKK", "loadHistoryList error: $e. Recreating HistoryDict.")
-            historyDict.recreate()
-            // 壊れていた場合は空の状態で表示されるが、無限ループを防ぐためこれ以上の再帰はしない
-        }
+        entryList.addAll(historyDict?.getAll() ?: emptyList())
     }
+
     private fun filterList(query: String?) {
         filteredList.clear()
         if (query.isNullOrEmpty()) {
@@ -151,10 +148,13 @@ class SKKHistoryDictTool : AppCompatActivity() {
             )
         }
         adapter.clear()
-        adapter.addAll(filteredList.map { 
-            val formattedValue = it.second.split("/").filter { s -> s.isNotEmpty() }.joinToString(", ")
-            "${it.first}  $formattedValue" 
-        })
+        adapter.addAll(
+                filteredList.map {
+                    val formattedValue =
+                            it.second.split("/").filter { s -> s.isNotEmpty() }.joinToString(", ")
+                    "${it.first}  $formattedValue"
+                }
+        )
         adapter.notifyDataSetChanged()
     }
 }

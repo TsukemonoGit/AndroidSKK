@@ -258,38 +258,6 @@ class SKKService : InputMethodService() {
         }
     }
 
-    private fun openDictionaries(): List<SKKDictionaryInterface> {
-        val result = mutableListOf<SKKDictionaryInterface>()
-        val dd = filesDir.absolutePath
-        dLog("dict dir: $dd")
-
-        val prefVal =
-                PreferenceManager.getDefaultSharedPreferences(this)
-                        .getString(
-                                getString(R.string.pref_dict_order),
-                                "ユーザー辞書/${getString(R.string.dict_name_user)}/"
-                        )
-        dLog("dict pref: $prefVal")
-        if (!prefVal.isNullOrEmpty()) {
-            val vals = prefVal.split("/").dropLastWhile { it.isEmpty() }
-            for (i in 1 until vals.size step 2) {
-                when (vals[i]) {
-                    getString(R.string.dict_name_user) -> result.add(mUserDict)
-                    // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
-                    else ->
-                            SKKDictionary.newInstance(
-                                            dd + "/" + vals[i],
-                                            getString(R.string.btree_name)
-                                    )
-                                    ?.also { result.add(it) }
-                                    ?: dLog("failed to open ${vals[i]}")
-                }
-            }
-        }
-
-        return result
-    }
-
     override fun onCreate() {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
         if (BuildConfig.DEBUG) {
@@ -349,7 +317,7 @@ class SKKService : InputMethodService() {
         }
         mUserDict = openUserDictionary(getString(R.string.dict_name_user), isASCII = false)
         mAsciiDict = openUserDictionary(getString(R.string.dict_name_ascii), isASCII = true)
-        mHistoryDict = SKKHistoryDictionary.newInstance(
+        mHistoryDict = SKKHistoryDictionary.getInstance(
                 filesDir.absolutePath + "/skk_historydict",
                 "skk_historydict"
         )
@@ -711,7 +679,7 @@ class SKKService : InputMethodService() {
             if (mPrevStates == null) {
                 mPrevStates = PrevStates(this, mInputView, engineState)
             } else {
-                // 未使用の prev を上書きせず保持するが、keyboard だけは戻しておく
+                // 未使用 of prev を上書きせず保持するが、keyboard だけは戻しておく
                 mPrevStates!!.let { prev ->
                     prev.keyboard?.let { kb -> prev.inputView?.keyboard = kb }
                 }
@@ -1473,6 +1441,38 @@ class SKKService : InputMethodService() {
     }
 
     @Suppress("SameReturnValue") private fun ping() = true
+
+    private fun openDictionaries(): List<SKKDictionaryInterface> {
+        val result = mutableListOf<SKKDictionaryInterface>()
+        val dd = filesDir.absolutePath
+        dLog("dict dir: $dd")
+
+        val prefVal =
+                PreferenceManager.getDefaultSharedPreferences(this)
+                        .getString(
+                                getString(R.string.pref_dict_order),
+                                "ユーザー辞書/${getString(R.string.dict_name_user)}/"
+                        )
+        dLog("dict pref: $prefVal")
+        if (!prefVal.isNullOrEmpty()) {
+            val vals = prefVal.split("/").dropLastWhile { it.isEmpty() }
+            for (i in 1 until vals.size step 2) {
+                when (vals[i]) {
+                    getString(R.string.dict_name_user) -> result.add(mUserDict)
+                    // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
+                    else ->
+                            SKKDictionary.newInstance(
+                                            dd + "/" + vals[i],
+                                            getString(R.string.btree_name)
+                                    )
+                                    ?.also { result.add(it) }
+                                    ?: dLog("failed to open ${vals[i]}")
+                }
+            }
+        }
+
+        return result
+    }
 
     companion object {
         private var instance: SKKService? = null

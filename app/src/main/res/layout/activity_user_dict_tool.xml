@@ -22,16 +22,15 @@
 
     <ListView
         android:id="@+id/userDictToolList"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
         android:layout_weight="1"
         tools:listitem="@android:layout/simple_list_item_1" />
 
     <TextView
         android:id="@+id/EmptyListItem"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
-        android:layout_weight="1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:text="@string/label_tools_no_entry_found"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:visibility="gone" />

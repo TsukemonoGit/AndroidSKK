@@ -418,15 +418,20 @@ class SKKEngine(
                 if (mOkurigana.isEmpty()) {
                     // [修正1] 送りなし変換中に濁点・半濁点ボタンが押された場合:
                     // mKanjiKey 末尾の仮名を送りがなとして濁音化し、変換をやりなおす。
-                    if (type != LAST_CONVERSION_DAKUTEN && type != LAST_CONVERSION_HANDAKUTEN &&
-                            type != LAST_CONVERSION_SMALL && type != LAST_CONVERSION_TRANS)
+                    if (type != LAST_CONVERSION_DAKUTEN &&
+                                    type != LAST_CONVERSION_HANDAKUTEN &&
+                                    type != LAST_CONVERSION_SMALL &&
+                                    type != LAST_CONVERSION_TRANS
+                    )
                             return
                     if (mKanjiKey.isEmpty()) return
                     val lastChar = mKanjiKey.last().toString()
 
                     // タップ(SMALL)でも濁音化できるように TRANS に振る
-                    val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
-                    val newOkurigana = RomajiConverter.convertLastChar(lastChar, effectiveType).second
+                    val effectiveType =
+                            if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                    val newOkurigana =
+                            RomajiConverter.convertLastChar(lastChar, effectiveType).second
 
                     if (newOkurigana == lastChar) return // 変換不可（あ行等）
                     mKanjiKey.deleteCharAt(mKanjiKey.length - 1)
@@ -438,7 +443,8 @@ class SKKEngine(
                 val okurigana = mOkurigana // ▼合い (okurigana = い)
 
                 // 送りありでもタップで濁音化等を可能にする
-                val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                val effectiveType =
+                        if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
                 val newOkurigana = RomajiConverter.convertLastChar(okurigana, effectiveType).second
 
                 if (type == LAST_CONVERSION_SHIFT) {
@@ -472,8 +478,10 @@ class SKKEngine(
             // 両ケースとも: key末尾の子音を新しい濁音子音に置き換えて再変換する。
             isRegistering &&
                     mRegistrationStack.peekFirst()?.entry?.isEmpty() == true &&
-                    (type == LAST_CONVERSION_DAKUTEN || type == LAST_CONVERSION_HANDAKUTEN ||
-                            type == LAST_CONVERSION_SMALL || type == LAST_CONVERSION_TRANS) -> {
+                    (type == LAST_CONVERSION_DAKUTEN ||
+                            type == LAST_CONVERSION_HANDAKUTEN ||
+                            type == LAST_CONVERSION_SMALL ||
+                            type == LAST_CONVERSION_TRANS) -> {
                 val regInfo = mRegistrationStack.peekFirst() ?: return
                 val key = regInfo.key
                 if (key.isEmpty()) return
@@ -483,7 +491,8 @@ class SKKEngine(
                         else key.last().toString()
 
                 // タップ(SMALL)でも濁点等を扱えるように TRANS に振る
-                val effectiveType = if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
+                val effectiveType =
+                        if (type == LAST_CONVERSION_SMALL) LAST_CONVERSION_TRANS else type
                 val newOkurigana = RomajiConverter.convertLastChar(targetChar, effectiveType).second
                 if (newOkurigana == targetChar) return // 変換不可
                 mRegistrationStack.removeFirst()
@@ -843,6 +852,10 @@ class SKKEngine(
     private fun registerWord() {
         val regInfo = mRegistrationStack.removeFirst()
         if (regInfo.entry.isNotEmpty()) {
+            android.util.Log.d(
+                    "SKKEngine",
+                    "registerWord: key=${regInfo.key}, entry=${regInfo.entry}, okurigana=${regInfo.okurigana}"
+            )
             val regEntryStr =
                     regInfo.entry.toString().let {
                         // セミコロンとスラッシュのエスケープ (なので登録で注釈を付けることはできない)
@@ -856,6 +869,7 @@ class SKKEngine(
                     }
             // if (isPersonalizedLearning) { のチェックはこの場合しないでおく
             mUserDict.addEntry(regInfo.key, regEntryStr, regInfo.okurigana)
+            mHistoryDict?.addHistory(regInfo.key, regEntryStr)
             (regInfo.entry.toString() + regInfo.okurigana).let {
                 commitTextSKK(
                         when (kanaStateBeforeRegistration) {
@@ -1116,13 +1130,13 @@ class SKKEngine(
             return
         }
 
-        if (isPersonalizedLearning) {
-            // 変換履歴は historyDict に保存（ユーザー辞書とは分離）
-            // value の形式は SKKUserDictionary.addEntry と合わせて "/$value/[okurigana/$value/]/" 相当を
-            // historyDict では key -> value（単一の最後の選択候補）として単純保存する
-            val historyValue = candidateList[index]
-            mHistoryDict?.addHistory(mKanjiKey.toString(), historyValue)
-        }
+        // 履歴保存の調査用ログ
+        val historyValue = candidateList[index]
+        android.util.Log.d(
+                "SKKEngine",
+                "addHistory: key=${mKanjiKey}, candidate=$historyValue, isPersonalizedLearning=$isPersonalizedLearning"
+        )
+        mHistoryDict?.addHistory(mKanjiKey.toString(), historyValue)
 
         if (backspace) {
             if (mOkurigana.isNotEmpty()) mOkurigana = mOkurigana.dropLast(1)
