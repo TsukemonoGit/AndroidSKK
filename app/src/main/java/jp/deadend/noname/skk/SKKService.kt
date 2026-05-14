@@ -351,9 +351,10 @@ class SKKService : InputMethodService() {
             Log.e("SKK", "ASCII dictionary failed to open")
             return
         }
-        val historyDict = mHistoryDict ?: run {
-            Log.e("SKK", "History dictionary failed to open")
-            return
+        // B15修正: 履歴辞書が開けなくてもIMEを起動不可にしない（nullでも動作可能）
+        val historyDict = mHistoryDict
+        if (historyDict == null) {
+            Log.w("SKK", "History dictionary failed to open, continuing without history")
         }
         mEngine = SKKEngine(this@SKKService, dictList, userDict, asciiDict, historyDict)
 

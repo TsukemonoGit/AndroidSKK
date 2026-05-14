@@ -114,13 +114,15 @@ private constructor(
         val rawVal = value.takeWhile { it != ';' } // 注釈を無視して探す
 
         // 送り仮名ブロックを削除
-        val okuriganaRemoved = okuriganaBlocks.removeIf { pair ->
+        okuriganaBlocks.removeIf { pair ->
             pair.first == okurigana && pair.second.takeWhile { it != ';' } == rawVal
         }
 
-        // 候補を削除
-        val candidateRemoved = candidates.removeIf { old ->
-            old.takeWhile { it != ';' } == rawVal
+        // 候補を削除: 残り(okuriganaRemoved)の送りブロックからrawValが参照されている場合は候補を残す
+        if (okuriganaBlocks.none { it.second.takeWhile { it2 -> it2 != ';' } == rawVal }) {
+            candidates.removeIf { old ->
+                old.takeWhile { it != ';' } == rawVal
+            }
         }
 
         // B15修正: 候補も送りブロックも空になった場合のみ削除
