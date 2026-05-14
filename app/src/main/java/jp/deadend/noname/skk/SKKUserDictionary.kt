@@ -61,41 +61,46 @@ private constructor(
     override fun getCandidates(rawKey: String): List<String>? =
             getEntry(rawKey)?.candidates?.distinct()
 
+    // B14修正: mOldKey/mOldValue の読み書きを safeRun 内に統合
     fun addEntry(key: String, value: String, okurigana: String) {
-        val oldVal = mBTree.let { if (it == null) return else it.find(key) }
+        val oldVal = mBTree?.let { it.find(key) }
 
         val newVal =
                 oldVal?.let { getEntry(key, it) }.let { entry ->
                     if (entry == null)
-                            return@let "/$value/" +
+                            "/$value/" +
                                     if (okurigana.isNotEmpty()) "[$okurigana/$value/]/" else ""
+                    else {
+                        val candidates =
+                                listOf(value).plus(entry.candidates).distinctBy { candidate ->
+                                    candidate.takeWhile { it != ';' } // 注釈は無視して一致判定する
+                                }
 
-                    val candidates =
-                            listOf(value).plus(entry.candidates).distinctBy { candidate ->
-                                candidate.takeWhile { it != ';' } // 注釈は無視して一致判定する
-                            }
+                        val okuriganaBlocks =
+                                (if (okurigana.isEmpty()) listOf() else listOf(okurigana to value))
+                                        .plus(entry.okuriganaBlocks)
+                                        .distinctBy { pair ->
+                                            pair.first to pair.second.takeWhile { it != ';' }
+                                        }
 
-                    val okuriganaBlocks =
-                            (if (okurigana.isEmpty()) listOf() else listOf(okurigana to value))
-                                    .plus(entry.okuriganaBlocks)
-                                    .distinctBy { pair ->
-                                        pair.first to pair.second.takeWhile { it != ';' }
-                                    }
-
-                    candidates.fold("/") { acc, str -> "$acc$str/" } +
-                            okuriganaBlocks.fold("") { acc, pair ->
-                                "$acc[${pair.first}/${pair.second}/]/"
-                            }
-                }
+                        candidates.fold("/") { acc, str -> "$acc$str/" } +
+                                okuriganaBlocks.fold("") { acc, pair ->
+                                    "$acc[${pair.first}/${pair.second}/]/"
+                                }
+                    }
+                } ?: "/$value/" + if (okurigana.isNotEmpty()) "[$okurigana/$value/]/" else ""
 
         safeRun {
-            mOldKey = key
-            mOldValue = oldVal.orEmpty()
+            val oldKey = key
+            val oldValue = oldVal.orEmpty()
+            mOldKey = oldKey
+            mOldValue = oldValue
             mBTree?.insert(key, newVal, true)
             mRecMan?.commit()
         }
     }
 
+    // B15修正: 送りブロックを削除しても候補が残っている場合はエントリを維持
     fun removeEntry(key: String, value: String, okurigana: String) {
         val entry =
                 getEntry(key)
@@ -104,23 +109,31 @@ private constructor(
                                 key.replace(Regex("\\d+(\\.\\d+)?"), "#")
                         )
                                 ?: return
-        val candidates = entry.candidates.toMutableList() // 送/遅/贈;ユーザー辞書にも注釈がある
-        val okuriganaBlocks = entry.okuriganaBlocks.toMutableList() // [ら/送/]/[り/送/]/[る/送;注釈もありうる?/]
+        val candidates = entry.candidates.toMutableList()
+        val okuriganaBlocks = entry.okuriganaBlocks.toMutableList()
         val rawVal = value.takeWhile { it != ';' } // 注釈を無視して探す
 
-        if (okuriganaBlocks.isEmpty() ||
-                        !okuriganaBlocks.removeIf { pair ->
-                            pair.first == okurigana && pair.second.takeWhile { it != ';' } == rawVal
-                        } // 送りブロックが残らない場合は丸ごと消す
-        )
-                candidates.removeIf { old -> old.takeWhile { it != ';' } == rawVal }
+        // 送り仮名ブロックを削除
+        val okuriganaRemoved = okuriganaBlocks.removeIf { pair ->
+            pair.first == okurigana && pair.second.takeWhile { it != ';' } == rawVal
+        }
 
-        val newVal =
-                candidates.fold("/") { acc, str -> "$acc$str/" } +
-                        okuriganaBlocks.fold("") { acc, pair ->
-                            "$acc[${pair.first}/${pair.second}/]/"
-                        }
-        replaceEntry(key, newVal)
+        // 候補を削除
+        val candidateRemoved = candidates.removeIf { old ->
+            old.takeWhile { it != ';' } == rawVal
+        }
+
+        // B15修正: 候補も送りブロックも空になった場合のみ削除
+        if (candidates.isEmpty() && okuriganaBlocks.isEmpty()) {
+            replaceEntry(key, "")
+        } else {
+            val newVal =
+                    candidates.fold("/") { acc, str -> "$acc$str/" } +
+                            okuriganaBlocks.fold("") { acc, pair ->
+                                "$acc[${pair.first}/${pair.second}/]/"
+                            }
+            replaceEntry(key, newVal)
+        }
     }
 
     fun replaceEntry(key: String, value: String) {
@@ -135,20 +148,22 @@ private constructor(
         }
     }
 
+    // B14修正: mOldKey/mOldValue の読み書きをすべて safeRun 内に行う
     fun rollBack() {
         if (mOldKey.isEmpty()) return
 
         safeRun {
-            if (mOldValue.isEmpty()) {
-                mBTree?.remove(mOldKey)
+            val oldKey = mOldKey
+            val oldValue = mOldValue
+            mOldKey = ""
+            mOldValue = ""
+            if (oldValue.isEmpty()) {
+                mBTree?.remove(oldKey)
             } else {
-                mBTree?.insert(mOldKey, mOldValue, true)
+                mBTree?.insert(oldKey, oldValue, true)
             }
             mRecMan?.commit()
         }
-
-        mOldValue = ""
-        mOldKey = ""
     }
 
     fun clear() {

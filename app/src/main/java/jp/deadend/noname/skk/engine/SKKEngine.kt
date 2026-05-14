@@ -175,10 +175,13 @@ class SKKEngine(
                         return false
                     }
                 } else {
-                    commitTextSKK(
-                            if (state === SKKHanKanaState) zenkaku2hankaku(mComposing.toString())!!
-                            else mComposing
-                    )
+                    // B6修正: zenkaku2hankaku は null を返す可能性がある
+                    val textToCommit = if (state === SKKHanKanaState) {
+                        zenkaku2hankaku(mComposing.toString()) ?: mComposing.toString()
+                    } else {
+                        mComposing
+                    }
+                    commitTextSKK(textToCommit)
                     mComposing.setLength(0)
                 }
             }
@@ -723,49 +726,50 @@ class SKKEngine(
         return false
     }
 
+    // B11修正: cancel() + invokeOnCompletion → 単純なキャンセル+新規launchに変更
     internal fun updateSuggestions(str: String) {
         if (mSuggestionsSuspended) return
-        mUpdateSuggestionsJob.cancel()
-        mUpdateSuggestionsJob.invokeOnCompletion {
-            mUpdateSuggestionsJob =
-                    MainScope().launch(Dispatchers.Default) {
-                        val set = mutableSetOf<Pair<String, String>>()
-
-                        if (str.isNotEmpty())
-                                for (dict in mDictList) {
-                                    addFound(this@launch, set, str, dict)
-                                }
-                        str.replace(Regex("\\d+(\\.\\d+)?"), "#").let {
-                            if (it != str)
-                                    for (dict in mDictList) {
-                                        addFound(this@launch, set, it, dict)
-                                    }
-                        }
-
-                        set.distinctBy { it.second }.let { uniqueSet ->
-                            mCompletionList = uniqueSet.map { it.first }
-                            mCandidateList = uniqueSet.map { it.second }
-                        }
-
-                        mCandidateKanjiKey = str
-                        mCurrentCandidateIndex = 0
-                        withContext(Dispatchers.Main) {
-                            if (str == "emoji")
-                                    mService.setCandidates(
-                                            mCandidateList?.map { removeAnnotation(it) },
-                                            str,
-                                            skkPrefs.candidatesEmojiLines
-                                    )
-                            else
-                                    mService.setCandidates(
-                                            mCandidateList,
-                                            str,
-                                            skkPrefs.candidatesNormalLines
-                                    )
-                        }
-                    }
-            mUpdateSuggestionsJob.start()
+        // 前回のJobをキャンセル（非同期）
+        if (!mUpdateSuggestionsJob.isCancelled) {
+            mUpdateSuggestionsJob.cancel()
         }
+        mUpdateSuggestionsJob =
+                MainScope().launch(Dispatchers.Default) {
+                    val set = mutableSetOf<Pair<String, String>>()
+
+                    if (str.isNotEmpty())
+                            for (dict in mDictList) {
+                                addFound(this@launch, set, str, dict)
+                            }
+                    str.replace(Regex("\\d+(\\.\\d+)?"), "#").let {
+                        if (it != str)
+                                for (dict in mDictList) {
+                                    addFound(this@launch, set, it, dict)
+                                }
+                    }
+
+                    set.distinctBy { it.second }.let { uniqueSet ->
+                        mCompletionList = uniqueSet.map { it.first }
+                        mCandidateList = uniqueSet.map { it.second }
+                    }
+
+                    mCandidateKanjiKey = str
+                    mCurrentCandidateIndex = 0
+                    withContext(Dispatchers.Main) {
+                        if (str == "emoji")
+                                mService.setCandidates(
+                                        mCandidateList?.map { removeAnnotation(it) },
+                                        str,
+                                        skkPrefs.candidatesEmojiLines
+                                )
+                        else
+                                mService.setCandidates(
+                                        mCandidateList,
+                                        str,
+                                        skkPrefs.candidatesNormalLines
+                                )
+                    }
+                }
     }
 
     internal fun suspendSuggestions() {
@@ -997,7 +1001,8 @@ class SKKEngine(
                         "\"#$%&'()=^~¥|@`[{;+*]},<.>\\_←↓↑→“”‘’『』【】！＂＃＄％＆＇（）－＝＾～￥｜＠｀［｛；＋：＊］｝，＜．＞／？＼＿、。"
                                 .toCharArray()
                                 .map { it.toString() }
-        mCompletionList = mCandidateList!!.map { "/きごう" }
+        // B6修正: mCandidateList!! → mCandidateList?.map?.orEmpty()
+        mCompletionList = mCandidateList?.map { "/きごう" }.orEmpty()
         mCurrentCandidateIndex = 0
         mCandidateKanjiKey = "/きごう"
         mService.setCandidates(mCandidateList, "/きごう", skkPrefs.candidatesNormalLines)
@@ -1009,12 +1014,12 @@ class SKKEngine(
         val (userOkList, userRestList) =
                 (userEntry?.candidates ?: listOf()).partition { s ->
                     mOkurigana.isEmpty() ||
-                            userEntry!!.okuriganaBlocks.any {
+                            userEntry?.okuriganaBlocks?.any {
                                 it.first == katakana2hiragana(hankaku2zenkaku(mOkurigana)) &&
                                         it.second == s
                                 // 送り仮名ブロックを直接使って変換するのではなく、この判定にだけ使っている
                                 // なので、送り仮名ブロックだけで存在していても無意味である
-                            }
+                            } == true
                 }
 
         val rawList: List<String> =
@@ -1186,7 +1191,8 @@ class SKKEngine(
                 conversionStart(mKanjiKey)
             }
             SKKKanjiState, SKKOkuriganaState -> {
-                val hira = if (kanaState === SKKHiraganaState) s else katakana2hiragana(s)!!
+                // B6修正: katakana2hiragana は null を返す可能性がある
+                val hira = if (kanaState === SKKHiraganaState) s else katakana2hiragana(s).orEmpty()
                 setComposingTextSKK(hira) // 向こうでカタカナにするので
                 val li = hira.length - 1
                 val last = hira.codePointAt(li)

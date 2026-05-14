@@ -154,8 +154,9 @@ class SKKService : InputMethodService() {
             val rawState = mEngine.state
             return if (rawState === SKKEmojiState) mEngine.oldState else rawState
         }
-    private lateinit var mUserDict: SKKUserDictionary
-    private lateinit var mAsciiDict: SKKUserDictionary
+    // B3修正: null許容型に変更
+    private var mUserDict: SKKUserDictionary? = null
+    private var mAsciiDict: SKKUserDictionary? = null
     private var mHistoryDict: SKKHistoryDictionary? = null
 
     internal val isHiragana: Boolean
@@ -286,7 +287,8 @@ class SKKService : InputMethodService() {
         notificationManager.createNotificationChannel(channel)
         // 事前に権限を持っていないと、onCreate 内では権限要求を出せないみたいなので注意！
 
-        fun openUserDictionary(name: String, isASCII: Boolean): SKKUserDictionary {
+        // B1+B3修正: null許容型にして、nullの場合はsuper.onDestroy()を呼ばずnullを返す
+        fun openUserDictionary(name: String, isASCII: Boolean): SKKUserDictionary? {
             val dict =
                     SKKUserDictionary.newInstance(
                             this@SKKService,
@@ -311,9 +313,8 @@ class SKKService : InputMethodService() {
                         getString(R.string.error_open_user_dict, name),
                         pendingIntent
                 )
-                super.onDestroy()
             }
-            return dict!!
+            return dict
         }
         mUserDict = openUserDictionary(getString(R.string.dict_name_user), isASCII = false)
         mAsciiDict = openUserDictionary(getString(R.string.dict_name_ascii), isASCII = true)
@@ -341,7 +342,20 @@ class SKKService : InputMethodService() {
             )
         }
 
-        mEngine = SKKEngine(this@SKKService, dictList, mUserDict, mAsciiDict, mHistoryDict)
+        // B1+B3修正: nullチェックを明示的に行う
+        val userDict = mUserDict ?: run {
+            Log.e("SKK", "User dictionary failed to open")
+            return
+        }
+        val asciiDict = mAsciiDict ?: run {
+            Log.e("SKK", "ASCII dictionary failed to open")
+            return
+        }
+        val historyDict = mHistoryDict ?: run {
+            Log.e("SKK", "History dictionary failed to open")
+            return
+        }
+        mEngine = SKKEngine(this@SKKService, dictList, userDict, asciiDict, historyDict)
 
         mSpeechRecognizer.setRecognitionListener(
                 object : RecognitionListener {
@@ -556,9 +570,10 @@ class SKKService : InputMethodService() {
         mAbbrevKeyboardView = AbbrevKeyboardView(context, null)
         mAbbrevKeyboardView?.setService(this)
 
-        // 絵文字ピッカーをリセット（テーマ変更等に対応）
+        // B5修正: 絵文字ピッカー表示状態を保持
+        val wasEmojiPickerShown = mIsEmojiPickerShown
         mEmojiPickerView = null
-        mIsEmojiPickerShown = false
+        mIsEmojiPickerShown = wasEmojiPickerShown
 
         if (skkPrefs.useInset) {
             ResourcesCompat.getDrawable(context.resources, R.drawable.key_bg_inset, null)?.let {
@@ -679,8 +694,8 @@ class SKKService : InputMethodService() {
             if (mPrevStates == null) {
                 mPrevStates = PrevStates(this, mInputView, engineState)
             } else {
-                // 未使用 of prev を上書きせず保持するが、keyboard だけは戻しておく
-                mPrevStates!!.let { prev ->
+                // B10修正: mPrevStates!! → mPrevStates?.let
+                mPrevStates?.let { prev ->
                     prev.keyboard?.let { kb -> prev.inputView?.keyboard = kb }
                 }
             }
@@ -693,8 +708,8 @@ class SKKService : InputMethodService() {
                     if (engineState in listOf(SKKAbbrevState, SKKASCIIState, SKKZenkakuState) ||
                                     mInputView !in listOf(mFlickJPInputView, mGodanInputView) ||
                                     (mInputView?.equals(mFlickJPInputView) == true &&
-                                            mInputView!!.keyboard !==
-                                                    mFlickJPInputView!!.mJPKeyboard)
+                                            mInputView?.keyboard !==
+                                                    mFlickJPInputView?.mJPKeyboard)
                     ) {
                         mEngine.changeState(SKKHiraganaState)
                     }
@@ -712,28 +727,34 @@ class SKKService : InputMethodService() {
                 // 英字にする
                 "qwerty" -> {
                     mEngine.changeInputMode('l'.code)
-                    if (mInputView?.equals(mQwertyInputView) == true) {
-                        mQwertyInputView!!.keyboard = mQwertyInputView!!.mLatinKeyboard
+                    mQwertyInputView?.let { qwerty ->
+                        if (mInputView?.equals(mQwertyInputView) == true) {
+                            qwerty.keyboard = qwerty.mLatinKeyboard
+                        }
                     }
                 }
 
                 // 英数記号にする
                 "symbols" -> {
                     mEngine.changeInputMode('l'.code)
-                    if (mInputView?.equals(mQwertyInputView) == true) {
-                        mQwertyInputView!!.keyboard = mQwertyInputView!!.mSymbolsKeyboard
+                    mQwertyInputView?.let { qwerty ->
+                        if (mInputView?.equals(mQwertyInputView) == true) {
+                            qwerty.keyboard = qwerty.mSymbolsKeyboard
+                        }
                     }
                 }
-                else -> throw Exception("invalid keyboardType: $keyboardType")
+                // B12修正: throw Exception → Log.w で安全側
+                else -> {
+                    android.util.Log.w("SKK", "invalid keyboardType: $keyboardType")
+                    mPrevStates = null
+                }
             }
 
             // 変更していないように見える場合は prev を保持しない
             mPrevStates?.let { prev ->
-                if (prev.inputView?.equals(mInputView) == true // null 不可
-                        &&
-                                prev.keyboard?.equals(mInputView!!.keyboard) != false // null 可
-                                &&
-                                prev.state == engineState
+                if (prev.inputView?.equals(mInputView) == true
+                        && prev.keyboard?.equals(mInputView?.keyboard) != false
+                        && prev.state == engineState
                 ) {
                     mPrevStates = null
                 }
@@ -832,9 +853,10 @@ class SKKService : InputMethodService() {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
         super.onUnbind(intent)
 
+        // B18修正: stopSelf() はメインスレッドから呼ぶ
         // このあと onDestroy() が呼ばれないことがあるので強制終了しておく
         // onDestroy() なしだと、次回起動がエラーで起動し直しになる
-        MainScope().launch { stopSelf() }
+        android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
 
         return false // rebind 不可能であることを示す
     }
@@ -860,13 +882,16 @@ class SKKService : InputMethodService() {
     override fun onComputeInsets(outInsets: Insets?) {
         // dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
         super.onComputeInsets(outInsets)
+        // B4修正: null guard 後なので let で安全にアクセス
         if (outInsets == null || mInputView == null || mCandidatesViewContainer == null) return
         outInsets.apply {
             if (isFloating()) {
-                val height = mInputView!!.height + mCandidatesViewContainer!!.height
+                val iv = mInputView!!
+                val cv = mCandidatesViewContainer!!
+                val height = iv.height + cv.height
                 contentTopInsets = height
                 touchableInsets = Insets.TOUCHABLE_INSETS_REGION
-                touchableRegion.set(leftOffset, 0, leftOffset + mInputView!!.keyboard.width, height)
+                touchableRegion.set(leftOffset, 0, leftOffset + iv.keyboard.width, height)
             } else {
                 contentTopInsets = visibleTopInsets
                 // CandidatesViewに対して強制的にActivityをリサイズさせるためのhack
@@ -1347,10 +1372,10 @@ class SKKService : InputMethodService() {
             val baseContext = createNightModeContext(applicationContext, skkPrefs.theme)
             val context = android.view.ContextThemeWrapper(baseContext, R.style.Theme_SKK)
             mEmojiPickerView = EmojiPickerKeyboardView(context)
-            mEmojiPickerView!!.setService(this)
+            mEmojiPickerView?.setService(this)
         }
         mIsEmojiPickerShown = true
-        val emojiView = mEmojiPickerView!!
+        val emojiView = mEmojiPickerView ?: return
         (emojiView.parent as? ViewGroup)?.removeView(emojiView)
         val h = keyboardHeight()
         val bottomPadding = if (h > 0) h * skkPrefs.keyPaddingBottom / 100 else 0
@@ -1375,24 +1400,28 @@ class SKKService : InputMethodService() {
         setInputView(mInputView)
     }
 
+    // B4修正: mInputView!! を安全なアクセスに変更
     override fun setInputView(view: View?) {
         dLog("setInputView($view)")
         // view が null のときはここをスキップして再描画だけする (ドラッグで位置調整のとき使う)
         (view as? KeyboardView)?.let { inputView ->
             mInputView = inputView
-            mInputView!!.apply {
-                (parent as? ViewGroup)?.removeView(view)
-                keyboard.resize(keyboardWidth(), keyboardHeight(), skkPrefs.keyPaddingBottom)
-                requestLayout()
+            mInputView?.let { iv ->
+                (iv.parent as? ViewGroup)?.removeView(view)
+                iv.keyboard.resize(keyboardWidth(), keyboardHeight(), skkPrefs.keyPaddingBottom)
+                iv.requestLayout()
             }
             super.setInputView(mInputView)
             computeLeftOffset()
         }
 
-        val right = mScreenWidth - leftOffset - mInputView!!.keyboard.width
-        (mInputView!!.parent as? FrameLayout)?.setPadding(leftOffset, 0, right, 0)
-        mCandidatesViewContainer?.parent?.let {
-            (it as FrameLayout).setPadding(leftOffset, 0, right, 0)
+        // B4修正: mInputView!! → mInputView?.let
+        mInputView?.let { iv ->
+            val right = mScreenWidth - leftOffset - iv.keyboard.width
+            (iv.parent as? FrameLayout)?.setPadding(leftOffset, 0, right, 0)
+            mCandidatesViewContainer?.parent?.let {
+                (it as FrameLayout).setPadding(leftOffset, 0, right, 0)
+            }
         }
         mCandidatesViewContainer?.setSize(-1)
     }
@@ -1458,7 +1487,7 @@ class SKKService : InputMethodService() {
             val vals = prefVal.split("/").dropLastWhile { it.isEmpty() }
             for (i in 1 until vals.size step 2) {
                 when (vals[i]) {
-                    getString(R.string.dict_name_user) -> result.add(mUserDict)
+                    getString(R.string.dict_name_user) -> mUserDict?.let { result.add(it) }
                     // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
                     else ->
                             SKKDictionary.newInstance(
@@ -1476,12 +1505,9 @@ class SKKService : InputMethodService() {
 
     companion object {
         private var instance: SKKService? = null
+        // B16修正: instance?.ping() は ?. で安全なので NPE catch は不要
         internal fun isRunning(): Boolean {
-            return try {
-                instance?.ping() ?: false
-            } catch (_: NullPointerException) {
-                false
-            }
+            return instance != null && instance?.ping() == true
         }
 
         internal const val KEY_COMMAND = "jp.deadend.noname.skk.KEY_COMMAND"

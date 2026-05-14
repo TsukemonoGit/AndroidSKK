@@ -122,6 +122,7 @@ class SKKHistoryDictionary private constructor(
         }
     }
 
+    // B17修正: close() で singleton instance = null しない。reopen() で再オープン可能にする
     fun close() {
         logDbFileState("close:before")
         safeRun { 
@@ -131,11 +132,7 @@ class SKKHistoryDictionary private constructor(
         logDbFileState("close:afterCommit")
         mRecMan = null
         mBTree = null
-        synchronized(SKKHistoryDictionary::class.java) {
-            if (instance === this) {
-                instance = null
-            }
-        }
+        // instance = null を削除。SKKService.onDestroy() 後にツールを起動しても再利用可能
     }
 
     fun reopen() {
