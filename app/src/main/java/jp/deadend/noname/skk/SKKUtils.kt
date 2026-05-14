@@ -36,8 +36,8 @@ fun hankaku2zenkaku(str: String?): String? {
                     str.length > index + 1 -> when (str[index + 1]) {
                         'ﾞ' -> {
                             val d = H2Z[0x10000 + it.code]
-                            skipNext = true
                             if (d != null) {
+                                skipNext = true
                                 // 0x10000+ はサロゲートペア、String() で正しく変換
                                 result.append(String(charArrayOf(d.toChar())))
                             } else {
@@ -47,8 +47,8 @@ fun hankaku2zenkaku(str: String?): String? {
 
                         'ﾟ' -> {
                             val h = H2Z[0x20000 + it.code]
-                            skipNext = true
                             if (h != null) {
+                                skipNext = true
                                 result.append(String(charArrayOf(h.toChar())))
                             } else {
                                 result.append(c.toChar())
