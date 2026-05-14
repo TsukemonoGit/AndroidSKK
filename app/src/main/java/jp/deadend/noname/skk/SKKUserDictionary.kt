@@ -88,7 +88,7 @@ private constructor(
                                     "$acc[${pair.first}/${pair.second}/]/"
                                 }
                     }
-                } ?: "/$value/" + if (okurigana.isNotEmpty()) "[$okurigana/$value/]/" else ""
+                }
 
         safeRun {
             val oldKey = key
