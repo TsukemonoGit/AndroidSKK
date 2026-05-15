@@ -872,8 +872,11 @@ class SKKService : InputMethodService() {
         }
 
         mHandler.removeCallbacksAndMessages(null)
-        mEngine.close()
-        mEngine.closeUserDict()
+        // B21修正: 辞書オープン失敗時はmEngineが未初期化のためisInitializedチェック
+        if (::mEngine.isInitialized) {
+            mEngine.close()
+            mEngine.closeUserDict()
+        }
         mSpeechRecognizer.destroy()
         instance = null
 

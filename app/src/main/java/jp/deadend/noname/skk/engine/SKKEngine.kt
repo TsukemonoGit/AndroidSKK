@@ -753,31 +753,32 @@ class SKKEngine(
             }
 
             set.distinctBy { it.second }.let { uniqueSet ->
-                mCompletionList = uniqueSet.map { it.first }
-                mCandidateList = uniqueSet.map { it.second }
-            }
-
-            mCandidateKanjiKey = str
-            mCurrentCandidateIndex = 0
-            withContext(Dispatchers.Main) {
-                if (str == "emoji")
-                    mService.setCandidates(
-                        mCandidateList?.map { removeAnnotation(it) },
-                        str,
-                        skkPrefs.candidatesEmojiLines
-                    )
-                else
-                    mService.setCandidates(
-                        mCandidateList,
-                        str,
-                        skkPrefs.candidatesNormalLines
-                    )
-                // 候補決定処理をコルーチン内で完結（invokeOnCompletion 依存を解消）
-                // 後退遷移時（Choose/Abbrev → Kanji に戻る）のみ composing text を更新
-                // 通常のかな入力中（KanjiState/OkuriganaStateなど）は候補表示のみ更新し、
-                // composing text は上書きしない
-                if (state === SKKChooseState || state === SKKAbbrevState) {
-                    setCurrentCandidateToComposing()
+                // B22修正: 共有変数への書き込みをwithContext(Dispatchers.Main)内に移動
+                // 旧Jobのcancel直後でも、メインスレッドで直列化されるためデータ競合しない
+                withContext(Dispatchers.Main) {
+                    mCompletionList = uniqueSet.map { it.first }
+                    mCandidateList = uniqueSet.map { it.second }
+                    mCandidateKanjiKey = str
+                    mCurrentCandidateIndex = 0
+                    if (str == "emoji")
+                        mService.setCandidates(
+                            mCandidateList?.map { removeAnnotation(it) },
+                            str,
+                            skkPrefs.candidatesEmojiLines
+                        )
+                    else
+                        mService.setCandidates(
+                            mCandidateList,
+                            str,
+                            skkPrefs.candidatesNormalLines
+                        )
+                    // 候補決定処理をコルーチン内で完結（invokeOnCompletion 依存を解消）
+                    // 後退遷移時（Choose/Abbrev → Kanji に戻る）のみ composing text を更新
+                    // 通常のかな入力中（KanjiState/OkuriganaStateなど）は候補表示のみ更新し、
+                    // composing text は上書きしない
+                    if (state === SKKChooseState || state === SKKAbbrevState) {
+                        setCurrentCandidateToComposing()
+                    }
                 }
             }
         }

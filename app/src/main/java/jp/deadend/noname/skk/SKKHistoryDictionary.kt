@@ -132,7 +132,7 @@ class SKKHistoryDictionary private constructor(
         logDbFileState("close:afterCommit")
         mRecMan = null
         mBTree = null
-        // instance = null を削除。SKKService.onDestroy() 後にツールを起動しても再利用可能
+        instance = null // クローズ後はgetInstance()が新しいインスタンスを生成する
     }
 
     fun reopen() {
@@ -143,6 +143,8 @@ class SKKHistoryDictionary private constructor(
             mBTree = it.second
         }
         logDbFileState("reopen:afterOpen")
+        // close()でinstance = nullになるので復元
+        instance = this
     }
 
     fun recreate() {
