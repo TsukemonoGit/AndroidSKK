@@ -773,7 +773,12 @@ class SKKEngine(
                         skkPrefs.candidatesNormalLines
                     )
                 // 候補決定処理をコルーチン内で完結（invokeOnCompletion 依存を解消）
-                setCurrentCandidateToComposing()
+                // 後退遷移時（Choose/Abbrev → Kanji に戻る）のみ composing text を更新
+                // 通常のかな入力中（KanjiState/OkuriganaStateなど）は候補表示のみ更新し、
+                // composing text は上書きしない
+                if (state === SKKChooseState || state === SKKAbbrevState) {
+                    setCurrentCandidateToComposing()
+                }
             }
         }
     }
@@ -1104,11 +1109,20 @@ class SKKEngine(
     }
 
     private fun getCandidate(index: Int): String? =
-            mCandidateList?.let {
-                processConcatAndMore(removeAnnotation(it[index]), mCandidateKanjiKey)
+            mCandidateList?.let { list ->
+                if (index in list.indices) {
+                    processConcatAndMore(removeAnnotation(list[index]), mCandidateKanjiKey)
+                } else {
+                    null
+                }
             }
 
     fun setCurrentCandidateToComposing() {
+        // 候補リストが未初期化 または 空リストの場合は何もしない
+        val candidates = mCandidateList ?: return
+        if (candidates.isEmpty()) return
+        if (mCurrentCandidateIndex < 0 || mCurrentCandidateIndex >= candidates.size) return
+
         getCandidate(mCurrentCandidateIndex)?.let { candidate ->
             setComposingTextSKK(candidate + mOkurigana)
         }
