@@ -726,13 +726,24 @@ class SKKEngine(
         return false
     }
 
-    // B11修正: cancel() + invokeOnCompletion → 単純なキャンセル+新規launchに変更
+    // B11+B21修正: invokeOnCompletion で旧Jobの完了を待ってから新規Jobを起動（データ競合防止）
     internal fun updateSuggestions(str: String) {
         if (mSuggestionsSuspended) return
-        // 前回のJobをキャンセル（非同期）
-        if (!mUpdateSuggestionsJob.isCancelled) {
-            mUpdateSuggestionsJob.cancel()
+        val prevJob = mUpdateSuggestionsJob
+        if (!prevJob.isCancelled) {
+            prevJob.cancel()
         }
+        // 旧Jobの完了を待ってから新規Jobを起動（前回のJobがサスペンションポイントのないループ内でも競合しない）
+        if (prevJob.isCompleted) {
+            launchSuggestions(str)
+        } else {
+            prevJob.invokeOnCompletion {
+                launchSuggestions(str)
+            }
+        }
+    }
+
+    private fun launchSuggestions(str: String) {
         mUpdateSuggestionsJob =
                 MainScope().launch(Dispatchers.Default) {
                     val set = mutableSetOf<Pair<String, String>>()

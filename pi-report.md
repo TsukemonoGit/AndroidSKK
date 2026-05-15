@@ -351,3 +351,22 @@ skipNext = true を if (d/h != null) ブロック内に移動しました。
   が無視されて消える
 - 修正後: skipNext = true は変換成功時のみセット → 有声バリアントがない場合は ﾞ/ﾟ  
   が次のイテレーションで通常処理される
+
+### Fix 1: SKKService.kt (+346〜+353) — ユーザー辞書null時のmEngine未初期化
+
+問題: mUserDict または mAsciiDict が null の場合、return で早期終了し mEngine (lateinit var)  
+ が未初期化のまま。その後のキー入力で UninitializedPropertyAccessException 発生。
+
+修正: return の代わりに stopSelf() を呼び、サービスを明示的に停止する。これにより onDestroy()  
+ が呼ばれ、クリーンなシャットダウンが行われる。
+
+### Fix 2: SKKEngine.kt (+733〜+754) — updateSuggestions()のデータ競合
+
+問題: cancel() の直後に launch()  
+ で新規Jobを起動するため、旧Jobがサスペンションポイントのないループ実行中に両Jobが並走し、mComplet
+ionList/mCandidateList への代入が競合する。
+
+修正: invokeOnCompletion  
+ を使って旧Jobの完了を待ってから新規Jobを起動するパターンに変更。旧Jobが既に完了している場合は即時
+起動、実行中の場合は invokeOnCompletion  
+ コールバックで完了を待つ。これにより旧コードの直列化パターンを再現し、データ競合を防止する。

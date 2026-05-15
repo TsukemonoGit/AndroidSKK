@@ -342,13 +342,15 @@ class SKKService : InputMethodService() {
             )
         }
 
-        // B1+B3修正: nullチェックを明示的に行う
+        // B1+B3+B21修正: 辞書開封失敗時は stopSelf() でサービスを停止（mEngine 未初期化によるクラッシュ防止）
         val userDict = mUserDict ?: run {
             Log.e("SKK", "User dictionary failed to open")
+            stopSelf()
             return
         }
         val asciiDict = mAsciiDict ?: run {
             Log.e("SKK", "ASCII dictionary failed to open")
+            stopSelf()
             return
         }
         // B15修正: 履歴辞書が開けなくてもIMEを起動不可にしない（nullでも動作可能）
