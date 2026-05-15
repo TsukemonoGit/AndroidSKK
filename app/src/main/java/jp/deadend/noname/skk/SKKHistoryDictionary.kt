@@ -156,6 +156,10 @@ class SKKHistoryDictionary private constructor(
             mBTree = it.second
         }
         logDbFileState("recreate:afterOpen")
+        // close()でinstance = nullになるので復元（reopen() と同様に）
+        // instance を復元しないとgetInstance()が新しいインスタンスを生成し、
+        // 同一DBファイルへの二重オープンに繋がる
+        instance = this
     }
 
     private inline fun <T> safeRun(crossinline block: () -> T): T =
