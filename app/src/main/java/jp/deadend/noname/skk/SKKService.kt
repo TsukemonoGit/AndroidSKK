@@ -873,9 +873,13 @@ class SKKService : InputMethodService() {
 
         mHandler.removeCallbacksAndMessages(null)
         // B21修正: 辞書オープン失敗時はmEngineが未初期化のためisInitializedチェック
+        // 順序の重要: 先にcloseUserDict()で辞書を閉じてからmEngine.close()でスコープをキャンセル。
+        // mEngine.close()（コルーチンスコープキャンセル）→ closeUserDict()（辞書close）の逆順序だと、
+        // SupervisorJob下のバックグラウンドI/Oコルーチンが既に閉じられた辞書ファイルにアクセスする
+        // リスクが残る。辞書を先に閉じてからスコープをキャンセルし、I/Oアクセスを阻止する。
         if (::mEngine.isInitialized) {
-            mEngine.close()
             mEngine.closeUserDict()
+            mEngine.close()
         }
         mSpeechRecognizer.destroy()
         instance = null
