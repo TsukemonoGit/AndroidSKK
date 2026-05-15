@@ -114,7 +114,7 @@ class SKKHistoryDictTool : AppCompatActivity() {
             R.id.menu_historydict_tool_clear -> {
                 val dialog =
                         jp.deadend.noname.dialog.ConfirmationDialogFragment.newInstance(
-                                getString(R.string.message_tools_confirm_clear)
+                                getString(R.string.message_tools_confirm_clear_history)
                         )
                 dialog.setListener(
                         object : jp.deadend.noname.dialog.ConfirmationDialogFragment.Listener {

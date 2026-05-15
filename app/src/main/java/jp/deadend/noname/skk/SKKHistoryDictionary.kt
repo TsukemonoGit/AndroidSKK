@@ -100,25 +100,22 @@ class SKKHistoryDictionary private constructor(
     fun clear() {
         logDbFileState("clear:before")
         safeRun {
-            val tuple = jdbm.helper.Tuple<String, String>()
-            val browser = mBTree?.browse() ?: return@safeRun
-            val keys = mutableListOf<String>()
-            while (browser.getNext(tuple)) {
-                keys.add(tuple.key)
+            // JDBM BTreeのbrowse中にremoveすると構造が壊れるため、
+            // ファイルを削除して再生成する（SKKUserDictToolのrecreateUserDictと同様の方式）
+            val dbFile = File("$mDictFile.db")
+            if (dbFile.exists()) {
+                dbFile.delete()
             }
-            try {
-                for (key in keys) {
-                    mBTree?.remove(key)
-                }
-                mRecMan?.commit()
-                logDbFileState("clear:afterCommit")
-            } catch (e: Exception) {
-                try {
-                    mRecMan?.rollback()
-                } catch (_: Exception) {}
-                logDbFileState("clear:exception")
-                throw e
+            // ファイルlg（ログ）も削除
+            val lgFile = File("$mDictFile.lg")
+            if (lgFile.exists()) {
+                lgFile.delete()
             }
+            // 新しいBTreeを再生成
+            val (newRecMan, newBTree) = openDB(mDictFile, mBtreeName)
+            mRecMan = newRecMan
+            mBTree = newBTree
+            logDbFileState("clear:afterRecreate")
         }
     }
 

@@ -36,6 +36,7 @@
     <string name="item_tools_entry">%1$s %2$s</string>
     <string name="message_tools_confirm_remove_entry">このエントリを削除しますか？</string>
     <string name="message_tools_confirm_clear">現在のユーザー辞書の内容はすべて消去されます。よろしいですか？</string>
+    <string name="message_tools_confirm_clear_history">現在の変換履歴はすべて削除されます。よろしいですか？</string>
     <string name="message_tools_written_to_external_storage">ユーザー辞書をテキスト形式で保存しました: %1$s</string>
 
     <string name="message_dict_manager_confirm_clear">現在の変換辞書をすべて削除します。よろしいですか？</string>
