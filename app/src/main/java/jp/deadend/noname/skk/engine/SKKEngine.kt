@@ -726,26 +726,17 @@ class SKKEngine(
         return false
     }
 
-    // B11+B21修正: invokeOnCompletion で旧Jobの完了を待ってから新規Jobを起動（データ競合防止）
+    // B11+B21修正: Jobチェーンで直列化（invokeOnCompletion 蓄積による競合を防止）
     internal fun updateSuggestions(str: String) {
         if (mSuggestionsSuspended) return
-        val prevJob = mUpdateSuggestionsJob
-        if (!prevJob.isCancelled) {
-            prevJob.cancel()
+        // 旧Jobをキャンセル
+        if (!mUpdateSuggestionsJob.isCancelled) {
+            mUpdateSuggestionsJob.cancel()
         }
-        // 旧Jobの完了を待ってから新規Jobを起動（前回のJobがサスペンションポイントのないループ内でも競合しない）
-        if (prevJob.isCompleted) {
-            launchSuggestions(str)
-        } else {
-            prevJob.invokeOnCompletion {
-                launchSuggestions(str)
-            }
-        }
-    }
-
-    private fun launchSuggestions(str: String) {
-        mUpdateSuggestionsJob =
-                MainScope().launch(Dispatchers.Default) {
+        // 新しい Job を親として渡す → チェーンが形成され、旧Job完了後に自動で新規Jobが起動
+        // これにより invokeOnCompletion ハンドラの蓄積を避け、常に最後の str の結果のみが最終的に残る
+        mUpdateSuggestionsJob = Job(mUpdateSuggestionsJob)
+        MainScope().launch(context = Dispatchers.Default + mUpdateSuggestionsJob) {
                     val set = mutableSetOf<Pair<String, String>>()
 
                     if (str.isNotEmpty())

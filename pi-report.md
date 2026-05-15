@@ -370,3 +370,23 @@ ionList/mCandidateList への代入が競合する。
  を使って旧Jobの完了を待ってから新規Jobを起動するパターンに変更。旧Jobが既に完了している場合は即時
 起動、実行中の場合は invokeOnCompletion  
  コールバックで完了を待つ。これにより旧コードの直列化パターンを再現し、データ競合を防止する。
+
+### 修正内容: SKKEngine.kt (+730〜+739) — invokeOnCompletion ハンドラ蓄積による競合
+
+問題のシナリオ:
+
+1.  updateSuggestions("あ") → invokeOnCompletion { launch("あ") } を job1 に登録
+2.  すぐに updateSuggestions("い") → mUpdateSuggestionsJob はまだ job1 → invokeOnCompletion {  
+    launch("い") } を job1 に追加（2つ目）
+3.  さらに updateSuggestions("う") → job1 に3つ目の handler を追加
+4.  job1 完了時 → 3つの launch が同時発火 → 古い結果が最新を上書き  
+
+
+修正: invokeOnCompletion を使わず、Job(parent) でJobチェーンを構築する方式に変更。
+
+- 各 updateSuggestions で Job(mUpdateSuggestionsJob) を新しい親として作成
+- 各 Job は直前に作成した Job を親として持つ
+- launch(context = Dispatchers.Default + job) で新規 Job の完了をトリガーとして自動的に次の Job  
+  が起動
+- これにより どの Job にも handler は常に1つだけ 蓄積せず、常に最後の str  
+  の結果のみが最終的に残る
