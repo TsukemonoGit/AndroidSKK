@@ -872,6 +872,7 @@ class SKKService : InputMethodService() {
         }
 
         mHandler.removeCallbacksAndMessages(null)
+        mEngine.close()
         mEngine.closeUserDict()
         mSpeechRecognizer.destroy()
         instance = null
