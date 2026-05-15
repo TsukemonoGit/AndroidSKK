@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import java.io.File
+import java.io.IOException
 import jdbm.RecordManager
 import jdbm.RecordManagerFactory
 import jdbm.btree.BTree
@@ -100,25 +101,33 @@ class SKKHistoryDictionary private constructor(
     fun clear() {
         logDbFileState("clear:before")
         safeRun {
-            val tuple = jdbm.helper.Tuple<String, String>()
-            val browser = mBTree?.browse() ?: return@safeRun
-            val keys = mutableListOf<String>()
-            while (browser.getNext(tuple)) {
-                keys.add(tuple.key)
-            }
-            try {
-                for (key in keys) {
-                    mBTree?.remove(key)
+            // JDBM BTreeのbrowse中にremoveすると構造が壊れるため、
+            // ファイルを削除して再生成する（SKKUserDictToolのrecreateUserDictと同様の方式）
+            
+            // 旧RecordManagerをクローズ（safeRun内=ミューテックス取得済みなので
+            // close()→safeRun()→withLock() と再入デッドロックしないよう、
+            // ここで直接 close() を呼ぶ）
+            mRecMan?.commit()
+            mRecMan?.close()
+            
+            val dbFile = File("$mDictFile.db")
+            if (dbFile.exists()) {
+                if (!dbFile.delete()) {
+                    throw IOException("Failed to delete $mDictFile.db")
                 }
-                mRecMan?.commit()
-                logDbFileState("clear:afterCommit")
-            } catch (e: Exception) {
-                try {
-                    mRecMan?.rollback()
-                } catch (_: Exception) {}
-                logDbFileState("clear:exception")
-                throw e
             }
+            // ファイルlg（ログ）も削除
+            val lgFile = File("$mDictFile.lg")
+            if (lgFile.exists()) {
+                if (!lgFile.delete()) {
+                    throw IOException("Failed to delete $mDictFile.lg")
+                }
+            }
+            // 新しいBTreeを再生成
+            val (newRecMan, newBTree) = openDB(mDictFile, mBtreeName)
+            mRecMan = newRecMan
+            mBTree = newBTree
+            logDbFileState("clear:afterRecreate")
         }
     }
 
