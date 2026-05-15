@@ -102,6 +102,13 @@ class SKKHistoryDictionary private constructor(
         safeRun {
             // JDBM BTreeのbrowse中にremoveすると構造が壊れるため、
             // ファイルを削除して再生成する（SKKUserDictToolのrecreateUserDictと同様の方式）
+            
+            // 旧RecordManagerをクローズ（safeRun内=ミューテックス取得済みなので
+            // close()→safeRun()→withLock() と再入デッドロックしないよう、
+            // ここで直接 close() を呼ぶ）
+            mRecMan?.commit()
+            mRecMan?.close()
+            
             val dbFile = File("$mDictFile.db")
             if (dbFile.exists()) {
                 dbFile.delete()
