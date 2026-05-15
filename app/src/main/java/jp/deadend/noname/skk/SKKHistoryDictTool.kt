@@ -150,8 +150,9 @@ class SKKHistoryDictTool : AppCompatActivity() {
         adapter.clear()
         adapter.addAll(
                 filteredList.map {
+                    // B8修正: empty → blank で空白のみの文字列もフィルタ
                     val formattedValue =
-                            it.second.split("/").filter { s -> s.isNotEmpty() }.joinToString(", ")
+                            it.second.split("/").filter { s -> s.isNotBlank() }.joinToString(", ")
                     "${it.first}  $formattedValue"
                 }
         )

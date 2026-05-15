@@ -150,11 +150,12 @@ object RomajiConverter {
     fun convertLastChar(str: String, type: String): Pair<String, String> {
         dLog("convertLastChar(str=$str, type=$type)")
 
-        if (str.isEmpty()) return "" to "" // str が 0 文字の場合
+        // B9修正: 空文字列・空白文字列のバリデーション強化
+        if (str.isEmpty() || str.trim().isEmpty()) return "" to ""
         var first = if (str.lastIndex > 0) str[str.lastIndex - 1].toString() else "" // 1 文字の場合
         val last = str.last()
 
-        val zen = hankaku2zenkaku(first + last)!! // 2文字
+        val zen = hankaku2zenkaku(first + last) ?: "" // 2文字、B9修正: null安全
         val kana = if (first.isNotEmpty() && zen.length == 1) {
             first = "" // ｶﾞとかﾊﾟ(2文字)からガやパ(1文字)になったので消さないとｶガやﾊパになる
             zen

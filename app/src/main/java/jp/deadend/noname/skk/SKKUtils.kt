@@ -16,43 +16,56 @@ private val PAT_QUOTED = "\"(.+?)\"".toRegex()
 private val PAT_ESCAPE_NUM = """\\\d{1,3}""".toRegex()
 
 // 半角から全角 (UNICODE)
+// B20修正: Char(0x10000+) は不正な char になるので、String(codePoint) で変換
 fun hankaku2zenkaku(str: String?): String? {
     if (str == null) return null
 
+    val result = StringBuilder(str.length * 2)
     var skipNext = false
-    return str.mapIndexedNotNull { index, it ->
+    str.forEachIndexed { index, it ->
         when {
             skipNext -> {
                 skipNext = false
-                null
             }
 
             it.code < 0x10000 -> {
                 val c = H2Z[it.code]
                 when {
-                    c == null -> it
+                    c == null -> result.append(it)
 
                     str.length > index + 1 -> when (str[index + 1]) {
-                        'ﾞ' -> H2Z[0x10000 + it.code]?.let { d ->
-                            skipNext = true
-                            Char(d)
-                        } ?: Char(c)
+                        'ﾞ' -> {
+                            val d = H2Z[0x10000 + it.code]
+                            if (d != null) {
+                                skipNext = true
+                                // 0x10000+ はサロゲートペア、String() で正しく変換
+                                result.append(String(charArrayOf(d.toChar())))
+                            } else {
+                                result.append(c.toChar())
+                            }
+                        }
 
-                        'ﾟ' -> H2Z[0x20000 + it.code]?.let { h ->
-                            skipNext = true
-                            Char(h)
-                        } ?: Char(c)
+                        'ﾟ' -> {
+                            val h = H2Z[0x20000 + it.code]
+                            if (h != null) {
+                                skipNext = true
+                                result.append(String(charArrayOf(h.toChar())))
+                            } else {
+                                result.append(c.toChar())
+                            }
+                        }
 
-                        else -> Char(c)
+                        else -> result.append(c.toChar())
                     }
 
-                    else -> Char(c)
+                    else -> result.append(c.toChar())
                 }
             }
 
-            else -> it
+            else -> result.append(it)
         }
-    }.joinToString("")
+    }
+    return result.toString()
 }
 
 fun zenkaku2hankaku(str: String?): String? {

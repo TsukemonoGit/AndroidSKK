@@ -265,26 +265,13 @@ class SKKDictManager : AppCompatActivity() {
                     val path = File("${filesDir.absolutePath}/SKK-JISYO.${type}.gz")
 
                     override fun onPositiveClick() {
+                        // B19修正: cancelAndJoin の後でネットワークアクセスしないよう、
+                        // ダウンロード後にプログレスをクリーンに終了する
                         MainScope().launch(Dispatchers.IO) {
+                            val item = mDictList.getOrNull(position) ?: return@launch
                             if (path.exists()) {
                                 deleteFile(path.name)
                             }
-                            val item = mDictList[position]
-                            val progressJob = launch { // 先に進捗表示を設置しておく
-                                while (true) {
-                                    delay(100)
-                                    ensureActive()
-                                    val size =
-                                            formatShortFileSize(applicationContext, path.length())
-                                    withContext(Dispatchers.Main) {
-                                        val newList = mDictList.toMutableList()
-                                        newList[position] = Tuple("${item.key} ($size)", item.value)
-                                        mAdapter.submitList(newList)
-                                        mDictList = newList
-                                    }
-                                }
-                            }
-                            progressJob.start()
                             URL(
                                             when (type) {
                                                 "lisplike" ->
@@ -297,14 +284,11 @@ class SKKDictManager : AppCompatActivity() {
                                     .use { us ->
                                         FileOutputStream(path).use { fs -> us.copyTo(fs) }
                                     }
-                            progressJob.let {
-                                it.cancelAndJoin()
-                                withContext(Dispatchers.Main) {
-                                    val newList = mDictList.toMutableList()
-                                    newList[position] = item
-                                    mAdapter.submitList(newList)
-                                    mDictList = newList
-                                }
+                            withContext(Dispatchers.Main) {
+                                val newList = mDictList.toMutableList()
+                                newList[position] = item
+                                mAdapter.submitList(newList)
+                                mDictList = newList
                             }
                             withContext(Dispatchers.Main) { loadCommonDict(path, position) }
                         }
