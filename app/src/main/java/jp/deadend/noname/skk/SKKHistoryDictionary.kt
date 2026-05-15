@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import java.io.File
+import java.io.IOException
 import jdbm.RecordManager
 import jdbm.RecordManagerFactory
 import jdbm.btree.BTree
@@ -111,12 +112,16 @@ class SKKHistoryDictionary private constructor(
             
             val dbFile = File("$mDictFile.db")
             if (dbFile.exists()) {
-                dbFile.delete()
+                if (!dbFile.delete()) {
+                    throw IOException("Failed to delete $mDictFile.db")
+                }
             }
             // ファイルlg（ログ）も削除
             val lgFile = File("$mDictFile.lg")
             if (lgFile.exists()) {
-                lgFile.delete()
+                if (!lgFile.delete()) {
+                    throw IOException("Failed to delete $mDictFile.lg")
+                }
             }
             // 新しいBTreeを再生成
             val (newRecMan, newBTree) = openDB(mDictFile, mBtreeName)
