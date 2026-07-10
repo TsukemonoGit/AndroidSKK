@@ -151,9 +151,10 @@
     <Row app:rowEdgeFlags="bottom">
         <Key
             app:codes="-1008"
-            app:downLabel="Flick"
             app:keyEdgeFlags="left"
-            app:keyLabel="かな"
+            app:keyLabel="絵
+かな
+貼"
             app:keyWidth="20%p" />
         <Key
             app:codes="-1009"
