@@ -103,12 +103,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
                         dx < 0 && dx2 > dy2 -> {
                             isFlicked = FLICK_LEFT
-                            return true
                         }
 
                         else -> {
                             isFlicked = FLICK_NONE
-                            // 左右に外れて別のキーになるかもしれないので return しない
                         }
                     }
                 } else {
