@@ -101,6 +101,11 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                             return true
                         }
 
+                        dx < 0 && dx2 > dy2 -> {
+                            isFlicked = FLICK_LEFT
+                            return true
+                        }
+
                         else -> {
                             isFlicked = FLICK_NONE
                             // 左右に外れて別のキーになるかもしれないので return しない
@@ -166,6 +171,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                     if (skkPrefs.preferFlick) flickNone else FLICK_DOWN -> mService.changeToFlick()
                     if (skkPrefs.preferFlick) FLICK_DOWN else flickNone -> mService.handleKanaKey()
                     flickUp -> mService.pasteClip()
+                    FLICK_LEFT -> mService.showEmojiPicker()
                 }
             }
 
@@ -279,6 +285,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         private const val FLICK_UP = 1
         private const val FLICK_NONE = 0
         private const val FLICK_DOWN = -1
+        private const val FLICK_LEFT = -2
     }
 
 }
