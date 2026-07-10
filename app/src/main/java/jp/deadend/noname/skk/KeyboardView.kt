@@ -49,6 +49,7 @@ open class KeyboardView @JvmOverloads constructor(
     }
 
     private lateinit var mKeyboard: Keyboard
+    protected val keyboardForSubclass: Keyboard get() = mKeyboard
     lateinit var mService: SKKService
     private var mCurrentPreviewKeyIndex = NOT_A_KEY
     private var mLabelTextSize = 0
@@ -70,7 +71,7 @@ open class KeyboardView @JvmOverloads constructor(
 
     private var mVerticalCorrection = 0
 
-    var isPreviewEnabled = true
+    open var isPreviewEnabled = true
     var backgroundAlpha = 255
     var isZenkaku = false
     var isHankaku = false
@@ -342,7 +343,7 @@ open class KeyboardView @JvmOverloads constructor(
         dismissPopupKeyboard()
     }
 
-    private fun adjustCase(
+    protected open fun adjustCase(
         label: String,
         shiftedLabel: String,
         downLabel: String,
@@ -599,7 +600,7 @@ open class KeyboardView @JvmOverloads constructor(
         }
     }
 
-    private fun getPreviewText(key: Keyboard.Key): String = when {
+    protected open fun getPreviewText(key: Keyboard.Key): String = when {
         key.codes[0] == Keyboard.KEYCODE_SHIFT -> when (isFlicked) {
             0 -> "SHIFT"
             else -> "CAPSLOCK"

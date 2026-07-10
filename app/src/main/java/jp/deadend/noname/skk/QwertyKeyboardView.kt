@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import android.content.Context
+import android.graphics.Paint
 import android.util.AttributeSet
 import android.util.SparseArray
 import android.view.KeyEvent
@@ -61,6 +62,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         super.setService(service)
         keyboard = mLatinKeyboard
         onKeyboardActionListener = this
+        isPreviewEnabled = false
         readPrefs(context)
     }
 
@@ -290,7 +292,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             KEYCODE_QWERTY_TO_JP -> {
                 // シフトの有無に関わらず同じ動作
                 when (isFlicked) {
-                    FLICK_NONE -> mService.handleKanaKey() // かな入力
+                    FLICK_NONE -> mService.changeSoftKeyboard(SKKHiraganaState) // かな切り替え
                     FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
                     FLICK_UP -> mService.pasteClip() // 貼り付け
                     else -> {} // 他はなにもしない
@@ -361,9 +363,9 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         keyboard.keys.find { it.codes[0] == code }
 
     override fun setKeyState(state: SKKState): QwertyKeyboardView {
-        // カナキー: ラベルはXMLで固定（絵/かな/貼の3行）。onプロパティのみでモード表示
+        // カナキー: ラベルはXMLで固定（絵/かな/貼の3行）。ハイライト不要
         val kanaKey = findKeyByCode(KEYCODE_QWERTY_TO_JP)
-        kanaKey?.on = state === SKKHiraganaState
+        kanaKey?.on = false
 
         val qKey = findKeyByCode('q'.code)
         qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
@@ -447,6 +449,8 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         mFixedPopupPos[0] = windowLocation[0] + this.width / 2 + mPopupOffset[0]
         mFixedPopupPos[1] = windowLocation[1] - size / 2 + mPopupOffset[1]
     }
+
+
 
     companion object {
         private const val KEYCODE_QWERTY_TO_JP = -1008
