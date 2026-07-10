@@ -366,7 +366,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         // カナキー: ラベルはXMLで固定（絵/かな/貼の3行）。ハイライト不要
         val kanaKey = findKeyByCode(KEYCODE_QWERTY_TO_JP)
         kanaKey?.on = false
-
+        kanaKey?.label = "貼付\n☻ かな \n"
         val qKey = findKeyByCode('q'.code)
         qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
 
