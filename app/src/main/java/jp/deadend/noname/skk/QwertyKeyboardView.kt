@@ -103,6 +103,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
                         dx < 0 && dx2 > dy2 -> {
                             isFlicked = FLICK_LEFT
+                            return true
                         }
 
                         else -> {
