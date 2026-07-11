@@ -38,7 +38,6 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
     private val mPopupSize = 120
     private val mPopupOffset = intArrayOf(0, 0)
     private val mFixedPopupPos = intArrayOf(0, 0)
-    private var mFixedPopupPosDirty = true
 
     // フリック方向ラベル (左, 上, 下)
     private val mFlickGuideLabelList = SparseArray<Array<String>>()
@@ -421,11 +420,8 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             setupPopupTextView()
 
             // ポップアップ位置を再計算
-            mFixedPopupPosDirty = true
-            if (mFixedPopupPosDirty) {
-                calculatePopupPos()
-                mFixedPopupPosDirty = false
-            }
+            // fixed/non-fixedに関わらず常にオフセットを最新にする
+            calculatePopupPos()
 
             val popup = mPopup
             if (popup != null) {
