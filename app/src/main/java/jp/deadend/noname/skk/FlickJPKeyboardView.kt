@@ -1004,8 +1004,14 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                             mService.changeSoftKeyboard(SKKZenkakuState)
                         }
                         EnumSet.of(FlickState.RIGHT) -> mService.symbolCandidates(isShifted)
-                        EnumSet.of(FlickState.NONE) -> mService.changeSoftKeyboard(SKKASCIIState)
-                        EnumSet.of(FlickState.DOWN) -> mService.changeSoftKeyboard(SKKASCIIState)
+                        EnumSet.of(FlickState.NONE) -> {
+                            mService.mEngine.changeState(SKKASCIIState)
+                            mService.changeSoftKeyboard(SKKASCIIState)
+                        }
+                        EnumSet.of(FlickState.DOWN) -> {
+                            mService.mEngine.changeState(SKKASCIIState)
+                            mService.changeSoftKeyboard(SKKASCIIState)
+                        }
                     }
             KEYCODE_FLICK_JP_SPEECH -> mService.recognizeSpeech()
             KEYCODE_FLICK_JP_PASTE -> mService.pasteClip()
