@@ -159,6 +159,30 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                 flickStartX = me.x
                 flickStartY = me.y
                 isFlicked = FLICK_NONE
+
+                // カナキー押下時にflickStartX/Yを更新した直後にポップアップ表示
+                if (mKanaKeyPressed && mUsePopup) {
+                    setupPopupTextView()
+                    calculatePopupPos()
+                    val popup = mPopup
+                    if (popup != null) {
+                        if (mFixedPopup) {
+                            popup.showAtLocation(
+                                this,
+                                Gravity.NO_GRAVITY,
+                                mFixedPopupPos[0],
+                                mFixedPopupPos[1]
+                            )
+                        } else {
+                            popup.showAtLocation(
+                                this,
+                                Gravity.NO_GRAVITY,
+                                flickStartX.toInt() + mPopupOffset[0],
+                                flickStartY.toInt() + mPopupOffset[1]
+                            )
+                        }
+                    }
+                }
             }
 
             MotionEvent.ACTION_MOVE -> {
@@ -400,9 +424,9 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             mService.suspendSuggestions()
         }
 
-        // カナキー押下時のフリックガイド表示
+        // カナキー押下フラグを設定（ポップアップ表示はonModifiedTouchEventのACTION_DOWNで行う）
         mKanaKeyPressed = (primaryCode == KEYCODE_QWERTY_TO_JP)
-        if (mUsePopup && mKanaKeyPressed) {
+        if (mKanaKeyPressed && mUsePopup) {
             // フリックガイドラベルを設定（xmlのTextViewインデックスに合わせる）
             val labels = mFlickGuideLabelList.get(KEYCODE_QWERTY_TO_JP)
             if (labels != null) {
@@ -413,29 +437,6 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                 }
             }
             setupPopupTextView()
-
-            // ポップアップ位置を再計算
-            // fixed/non-fixedに関わらず常にオフセットを最新にする
-            calculatePopupPos()
-
-            val popup = mPopup
-            if (popup != null) {
-                if (mFixedPopup) {
-                    popup.showAtLocation(
-                        this,
-                        Gravity.NO_GRAVITY,
-                        mFixedPopupPos[0],
-                        mFixedPopupPos[1]
-                    )
-                } else {
-                    popup.showAtLocation(
-                        this,
-                        Gravity.NO_GRAVITY,
-                        flickStartX.toInt() + mPopupOffset[0],
-                        flickStartY.toInt() + mPopupOffset[1]
-                    )
-                }
-            }
         }
     }
 
