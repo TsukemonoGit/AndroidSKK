@@ -297,10 +297,11 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
             KEYCODE_QWERTY_TO_JP -> {
                 // preferFlick 設定で通常タップ/下フリックの役割を切り替え
+                // Shift状態に影響されないようisFlickedを直接比較（flickUp/flickNone変数を使用しない）
                 when (isFlicked) {
-                    if (skkPrefs.preferFlick) flickNone else FLICK_DOWN -> mService.changeToFlick()
-                    if (skkPrefs.preferFlick) FLICK_DOWN else flickNone -> mService.handleKanaKey()
-                    flickUp -> mService.pasteClip()
+                    if (skkPrefs.preferFlick) FLICK_NONE else FLICK_DOWN -> mService.changeToFlick()
+                    if (skkPrefs.preferFlick) FLICK_DOWN else FLICK_NONE -> mService.handleKanaKey()
+                    FLICK_UP -> mService.pasteClip()
                     FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
                     else -> {}
                 }
@@ -308,16 +309,17 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
             KEYCODE_QWERTY_TO_SYM -> {
                 if (!isCapsLocked) isShifted = false
+                // Shift状態に影響されないようisFlickedを直接比較
                 when (isFlicked) {
-                    flickNone -> {
+                    FLICK_NONE -> {
                         keyboard = mSymbolsKeyboard
                         isShifted = keyboard.isShifted
                         isCapsLocked = keyboard.isCapsLocked
-                        // 記号は capslock にならない気がするが一応
+                        // 記号は capslock にならないが一応
                     }
-
-                    flickUp -> mService.googleTransliterate()
+                    FLICK_UP -> mService.googleTransliterate()
                     FLICK_DOWN -> mService.handleCancel()
+                    else -> {}
                 }
             }
 
