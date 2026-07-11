@@ -357,13 +357,8 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                         else -> primaryCode
                     }
 
-                    // qwerty配列では通常ASCII入力、全角モードのみ全角を維持
-                    if (mService.engineState === SKKZenkakuState) {
-                        mService.processKeyIn(SKKZenkakuState, code)
-                    } else {
-                        mService.mEngine.changeState(SKKASCIIState)
-                        mService.processKeyIn(SKKASCIIState, code)
-                    }
+                    // 現在の状態を維持したままキー入力を処理
+                    mService.processKeyIn(mService.engineState, code)
                 }
         }
         when (primaryCode) {
@@ -383,11 +378,11 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         // 一時状態 (候補選択等) は「確定」、ひらがな状態は「かな」、他は「貼付」
         val kanaLabel = if (state.isTransient) "確定" else "かな"
         val flickLabel = if (skkPrefs.preferFlick) "Flick" else "かな"
-        val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana
+        val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState)
         kanaKey?.on = showKana
         kanaKey?.label = if (state.isTransient) kanaLabel else if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
         val qKey = findKeyByCode('q'.code)
-        qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
+        qKey?.on = state !in listOf(SKKASCIIState, SKKZenkakuState)
 
         val lKey = findKeyByCode('l'.code)
         lKey?.on = (state === SKKASCIIState)
