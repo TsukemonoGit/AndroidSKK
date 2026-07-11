@@ -998,7 +998,11 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                     when (mFlickState) {
 
                         EnumSet.of(FlickState.LEFT) -> mService.showEmojiPicker()
-                        EnumSet.of(FlickState.UP) ->  mService.changeSoftKeyboard(SKKASCIIState)
+                        EnumSet.of(FlickState.UP) -> {
+                            // 全角ａモードに遷移
+                            mService.mEngine.changeState(SKKZenkakuState)
+                            mService.changeSoftKeyboard(SKKZenkakuState)
+                        }
                         EnumSet.of(FlickState.RIGHT) -> mService.symbolCandidates(isShifted)
                         EnumSet.of(FlickState.NONE) -> mService.changeSoftKeyboard(SKKASCIIState)
                         EnumSet.of(FlickState.DOWN) -> mService.changeSoftKeyboard(SKKASCIIState)

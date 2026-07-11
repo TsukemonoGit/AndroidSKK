@@ -353,9 +353,13 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                         else -> primaryCode
                     }
 
-                    // qwerty配列では常にASCII入力（かな変換なし）
-                    mService.mEngine.changeState(SKKASCIIState)
-                    mService.processKeyIn(SKKASCIIState, code)
+                    // qwerty配列では通常ASCII入力、全角モードのみ全角を維持
+                    if (mService.engineState === SKKZenkakuState) {
+                        mService.processKeyIn(SKKZenkakuState, code)
+                    } else {
+                        mService.mEngine.changeState(SKKASCIIState)
+                        mService.processKeyIn(SKKASCIIState, code)
+                    }
                 }
         }
         when (primaryCode) {
