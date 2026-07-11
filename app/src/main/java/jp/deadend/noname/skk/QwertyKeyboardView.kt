@@ -12,6 +12,7 @@ import android.widget.TextView
 import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
 import jp.deadend.noname.skk.engine.SKKASCIIState
 import jp.deadend.noname.skk.engine.SKKHiraganaState
+import jp.deadend.noname.skk.engine.SKKKatakanaState
 import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
@@ -292,10 +293,13 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             KEYCODE_QWERTY_TO_JP -> {
                 // シフトの有無に関わらず同じ動作
                 when (isFlicked) {
-                    FLICK_NONE -> mService.changeSoftKeyboard(SKKHiraganaState) // かな切り替え
+                    FLICK_NONE -> {
+                        mService.mEngine.changeState(SKKHiraganaState)
+                        mService.changeSoftKeyboard(SKKHiraganaState)
+                    }
                     FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
                     FLICK_UP -> mService.pasteClip() // 貼り付け
-                    else -> {} // 他はなにもしない
+                    else -> {}
                 }
             }
 
@@ -315,41 +319,44 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             }
 
             KEYCODE_QWERTY_TO_LATIN -> {
-                // 単純 shift を capslock として扱うので状態を残す
                 when (isFlicked) {
-                    FLICK_NONE, FLICK_UP -> {
-                        keyboard = mLatinKeyboard
-                        isShifted = keyboard.isShifted
-                        isCapsLocked = keyboard.isCapsLocked
-                        // latin に capslock が残っている場合がある
+                    FLICK_NONE -> {
+                        mService.mEngine.changeState(SKKASCIIState)
+                        mService.changeSoftKeyboard(SKKASCIIState)
                     }
-
+                    FLICK_UP -> {
+                        mService.mEngine.changeState(SKKASCIIState)
+                        mService.changeSoftKeyboard(SKKASCIIState)
+                    }
                     FLICK_DOWN -> {
                         mService.handleCancel()
-                        if (!isCapsLocked) isShifted = false
                     }
+                    else -> {}
                 }
             }
 
-            else -> {
-                if (primaryCode == ' '.code && mSpaceFlicked) {
-                    mService.updateSuggestionsASCII()
-                    return
+                else -> {
+                    if (primaryCode == ' '.code && mSpaceFlicked) {
+                        mService.updateSuggestionsASCII()
+                        return
+                    }
+
+                    val shiftedCode = keyboard.shiftedCodes[primaryCode] ?: 0
+                    val downCode = keyboard.downCodes[primaryCode] ?: 0
+                    val code = when (isFlicked) {
+                        FLICK_DOWN ->
+                            if (downCode > 0) downCode else primaryCode
+
+                        flickUp ->
+                            if (shiftedCode > 0) shiftedCode else primaryCode
+
+                        else -> primaryCode
+                    }
+
+                    // qwerty配列では常にASCII入力（かな変換なし）
+                    mService.mEngine.changeState(SKKASCIIState)
+                    mService.processKeyIn(SKKASCIIState, code)
                 }
-
-                val shiftedCode = keyboard.shiftedCodes[primaryCode] ?: 0
-                val downCode = keyboard.downCodes[primaryCode] ?: 0
-                val code = when (isFlicked) {
-                    FLICK_DOWN ->
-                        if (downCode > 0) downCode else primaryCode
-
-                    flickUp ->
-                        if (shiftedCode > 0) shiftedCode else primaryCode
-
-                    else -> primaryCode
-                }
-                mService.processKey(code)
-            }
         }
         when (primaryCode) {
             Keyboard.KEYCODE_SHIFT, KEYCODE_QWERTY_TO_SYM, KEYCODE_QWERTY_TO_LATIN -> {}
@@ -363,10 +370,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         keyboard.keys.find { it.codes[0] == code }
 
     override fun setKeyState(state: SKKState): QwertyKeyboardView {
-        // カナキー: ラベルはXMLで固定（絵/かな/貼の3行）。ハイライト不要
+        // カナキー: ラベルはXMLで固定（絵/flick/貼/の3行）。ハイライト不要
         val kanaKey = findKeyByCode(KEYCODE_QWERTY_TO_JP)
         kanaKey?.on = false
-        kanaKey?.label = "貼付\n☻ かな \n"
+        kanaKey?.label = "貼付\n☻ Flick \n "
         val qKey = findKeyByCode('q'.code)
         qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
 

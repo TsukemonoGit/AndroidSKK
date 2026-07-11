@@ -60,13 +60,13 @@ class SKKService : InputMethodService() {
     private var mCandidatesView: CandidatesView? = null
     private var mFlickJPInputView: FlickJPKeyboardView? = null
     private var mGodanInputView: GodanKeyboardView? = null
-    private var mQwertyInputView: QwertyKeyboardView? = null
+    internal var mQwertyInputView: QwertyKeyboardView? = null
     private var mAbbrevKeyboardView: AbbrevKeyboardView? = null
     private var mEmojiPickerView: EmojiPickerKeyboardView? = null
     private var mIsEmojiPickerShown = false
 
     // 現在表示中の KeyboardView
-    private var mInputView: KeyboardView? = mFlickJPInputView
+    internal var mInputView: KeyboardView? = mFlickJPInputView
     internal var inputViewWidth
         get() = mInputView?.keyboard?.width ?: mScreenWidth
         set(width) {
@@ -148,7 +148,7 @@ class SKKService : InputMethodService() {
     private lateinit var mAudioManager: AudioManager
     private var mStreamVolume = 0
 
-    private lateinit var mEngine: SKKEngine
+    internal lateinit var mEngine: SKKEngine
     internal val engineState: SKKState
         get() {
             val rawState = mEngine.state
@@ -1347,15 +1347,18 @@ class SKKService : InputMethodService() {
             kv?.stopRepeatKey()
         }
 
-        setInputView(
+        val newView =
                 if (skkPrefs.preferFlick && skkPrefs.preferGodan && !skkPrefs.godanQwerty) {
                     // SKKASCIIState で Qwerty にならない唯一のケース
                     mGodanInputView?.setKeyState(state)
                 } else
                         when (state) {
-                            // state==ASCII は Qwerty にするためだけの場合があるので引数を使わない
-                            // 他の場合は基本的に state==engineState のはずなので、どちらでも構わない
-                            SKKASCIIState -> mQwertyInputView?.setKeyState(engineState)
+                            SKKASCIIState -> {
+                                mQwertyInputView?.apply {
+                                    keyboard = mLatinKeyboard
+                                    setKeyState(engineState)
+                                }
+                            }
                             SKKKanjiState, SKKHiraganaState, SKKKatakanaState, SKKHanKanaState ->
                                     when {
                                         !skkPrefs.preferFlick -> mQwertyInputView
@@ -1366,8 +1369,9 @@ class SKKService : InputMethodService() {
                             SKKZenkakuState -> mQwertyInputView?.setKeyState(state)
                             else -> throw Exception("invalid state: $state")
                         }
-                                ?: return
-        )
+        if (newView == null) return
+        mInputView = newView
+        setInputView(newView)
     }
 
     fun changeToFlick() {
