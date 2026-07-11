@@ -38,6 +38,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
     private val mPopupSize = 120
     private val mPopupOffset = intArrayOf(0, 0)
     private val mFixedPopupPos = intArrayOf(0, 0)
+    private var mFixedPopupPosDirty = true
 
     // フリック方向ラベル (左, 上, 下)
     private val mFlickGuideLabelList = SparseArray<Array<String>>()
@@ -193,19 +194,23 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
                         mKanaKeyPressed -> {
                             // カナキー: 全方向をフリック検知
+                            val prevFlicked = isFlicked
                             when {
                                 dx2 > dy2 && dx2 > mFlickSensitivitySquared -> {
                                     isFlicked = if (dx < 0) FLICK_LEFT else FLICK_NONE
-                                    return true
                                 }
                                 dy2 > mFlickSensitivitySquared -> {
                                     isFlicked = if (dy < 0) FLICK_UP else FLICK_DOWN
-                                    return true
                                 }
                                 else -> {
                                     isFlicked = FLICK_NONE
                                 }
                             }
+                            // フリック方向変更時にガイドのハイライトを更新
+                            if (isFlicked != prevFlicked && mUsePopup) {
+                                setupPopupTextView()
+                            }
+                            return true
                         }
 
                         dy < 0 && dx2 < dy2 -> {
@@ -293,12 +298,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             KEYCODE_QWERTY_TO_JP -> {
                 // シフトの有無に関わらず同じ動作
                 when (isFlicked) {
-                    FLICK_NONE -> {
-                        mService.mEngine.changeState(SKKHiraganaState)
-                        mService.changeSoftKeyboard(SKKHiraganaState)
-                    }
+                    FLICK_NONE -> mService.handleKanaKey()
                     FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
                     FLICK_UP -> mService.pasteClip() // 貼り付け
+                    FLICK_DOWN -> mService.handleKanaKey() // 下フリックもかな切替
                     else -> {}
                 }
             }
@@ -374,10 +377,14 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         keyboard.keys.find { it.codes[0] == code }
 
     override fun setKeyState(state: SKKState): QwertyKeyboardView {
-        // カナキー: ラベルはXMLで固定（絵/flick/貼/の3行）。ハイライト不要
+        // カナキー: 状態に応じた表示
         val kanaKey = findKeyByCode(KEYCODE_QWERTY_TO_JP)
-        kanaKey?.on = false
-        kanaKey?.label = "貼付\n☻ Flick \n "
+        // 一時状態 (候補選択等) は「確定」、ひらがな状態は「かな」、他は「貼付」
+        val kanaLabel = if (state.isTransient) "確定" else "かな"
+        val flickLabel = if (skkPrefs.preferFlick) "Flick" else "かな"
+        val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana
+        kanaKey?.on = showKana
+        kanaKey?.label = if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
         val qKey = findKeyByCode('q'.code)
         qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
 
@@ -411,9 +418,11 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             }
             setupPopupTextView()
 
-            // ポップアップ位置を計算
-            if (mFixedPopupPos[0] == 0) {
+            // ポップアップ位置を再計算
+            mFixedPopupPosDirty = true
+            if (mFixedPopupPosDirty) {
                 calculatePopupPos()
+                mFixedPopupPosDirty = false
             }
 
             val popup = mPopup
