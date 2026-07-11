@@ -296,12 +296,12 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             }
 
             KEYCODE_QWERTY_TO_JP -> {
-                // シフトの有無に関わらず同じ動作
+                // preferFlick 設定で通常タップ/下フリックの役割を切り替え
                 when (isFlicked) {
-                    FLICK_NONE -> mService.handleKanaKey()
+                    if (skkPrefs.preferFlick) flickNone else FLICK_DOWN -> mService.changeToFlick()
+                    if (skkPrefs.preferFlick) FLICK_DOWN else flickNone -> mService.handleKanaKey()
+                    flickUp -> mService.pasteClip()
                     FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
-                    FLICK_UP -> mService.pasteClip() // 貼り付け
-                    FLICK_DOWN -> mService.handleKanaKey() // 下フリックもかな切替
                     else -> {}
                 }
             }
@@ -384,7 +384,7 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         val flickLabel = if (skkPrefs.preferFlick) "Flick" else "かな"
         val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana
         kanaKey?.on = showKana
-        kanaKey?.label = if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
+        kanaKey?.label = if (state.isTransient) kanaLabel else if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
         val qKey = findKeyByCode('q'.code)
         qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
 
