@@ -996,12 +996,22 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                     }
             KEYCODE_FLICK_JP_TO_QWERTY ->
                     when (mFlickState) {
-                        EnumSet.of(FlickState.NONE) ->
-                                mService.processKey((if (isShifted) '/' else 'l').code)
+
                         EnumSet.of(FlickState.LEFT) -> mService.showEmojiPicker()
-                        EnumSet.of(FlickState.UP) -> mService.processKey('L'.code)
+                        EnumSet.of(FlickState.UP) -> {
+                            // 全角ａモードに遷移
+                            mService.mEngine.changeState(SKKZenkakuState)
+                            mService.changeSoftKeyboard(SKKZenkakuState)
+                        }
                         EnumSet.of(FlickState.RIGHT) -> mService.symbolCandidates(isShifted)
-                        EnumSet.of(FlickState.DOWN) -> mService.changeSoftKeyboard(SKKASCIIState)
+                        EnumSet.of(FlickState.NONE) -> {
+                            mService.mEngine.changeState(SKKASCIIState)
+                            mService.changeSoftKeyboard(SKKASCIIState)
+                        }
+                        EnumSet.of(FlickState.DOWN) -> {
+                            mService.mEngine.changeState(SKKASCIIState)
+                            mService.changeSoftKeyboard(SKKASCIIState)
+                        }
                     }
             KEYCODE_FLICK_JP_SPEECH -> mService.recognizeSpeech()
             KEYCODE_FLICK_JP_PASTE -> mService.pasteClip()

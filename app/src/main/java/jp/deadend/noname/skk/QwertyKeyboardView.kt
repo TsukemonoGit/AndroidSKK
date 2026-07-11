@@ -1,11 +1,18 @@
 package jp.deadend.noname.skk
 
 import android.content.Context
+import android.graphics.Paint
 import android.util.AttributeSet
+import android.util.SparseArray
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.Gravity
+import android.widget.PopupWindow
+import android.widget.TextView
+import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
 import jp.deadend.noname.skk.engine.SKKASCIIState
 import jp.deadend.noname.skk.engine.SKKHiraganaState
+import jp.deadend.noname.skk.engine.SKKKatakanaState
 import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
@@ -20,6 +27,31 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
     private var mSpacePressed = false
     private var mSpaceFlicked = false
 
+    // カナキー押下中のフリック検知用
+    private var mKanaKeyPressed = false
+
+    // フリックガイド表示用
+    private var mUsePopup = true
+    private var mFixedPopup = false
+    private var mPopup: PopupWindow? = null
+    private var mPopupTextView: Array<TextView>? = null
+    private val mPopupSize = 120
+    private val mPopupOffset = intArrayOf(0, 0)
+    private val mFixedPopupPos = intArrayOf(0, 0)
+
+    // フリック方向ラベル (左, 上, 下)
+    private val mFlickGuideLabelList = SparseArray<Array<String>>()
+
+    private var mCurrentPopupLabels = arrayOf("", "", "", "", "", "", "")
+
+    init {
+        isPreviewEnabled = false
+        val a = mFlickGuideLabelList
+        // xml popup_flickguide.xml の TextView インデックスに合わせる
+        // [0]=中央=かな, [1]=左=絵☻, [2]=上=貼り付け
+        a.append(KEYCODE_QWERTY_TO_JP, arrayOf("かな", "絵☻", "貼り付け", "", "", "", ""))
+    }
+
     constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
     constructor(context: Context, attrs: AttributeSet?, defStyle: Int) : super(
         context,
@@ -31,12 +63,80 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         super.setService(service)
         keyboard = mLatinKeyboard
         onKeyboardActionListener = this
+        isPreviewEnabled = false
+        readPrefs(context)
     }
 
     override fun onDetachedFromWindow() {
+        if (mPopup?.isShowing == true) mPopup!!.dismiss()
         super.onDetachedFromWindow()
         isShifted = false
         isCapsLocked = false
+    }
+
+    private fun readPrefs(context: Context) {
+        mUsePopup = skkPrefs.usePopup
+        if (mUsePopup) {
+            mFixedPopup = skkPrefs.useFixedPopup
+            if (mPopup == null) {
+                val popup = createPopupGuide(context)
+                mPopup = popup
+                val binding = PopupFlickguideBinding.bind(popup.contentView)
+                mPopupTextView = arrayOf(
+                    binding.labelA,
+                    binding.labelI,
+                    binding.labelU,
+                    binding.labelE,
+                    binding.labelO,
+                    binding.labelLeftA,
+                    binding.labelRightA,
+                    binding.labelLeftI,
+                    binding.labelRightI,
+                    binding.labelLeftU,
+                    binding.labelRightU,
+                    binding.labelLeftE,
+                    binding.labelRightE,
+                    binding.labelLeftO,
+                    binding.labelRightO
+                )
+            }
+        }
+    }
+
+    private fun createPopupGuide(context: Context): PopupWindow {
+        val view = inflate(context, R.layout.popup_flickguide, null)
+
+        val scale = context.resources.displayMetrics.density
+        val size = (mPopupSize * scale + 0.5f).toInt()
+
+        val popup = PopupWindow(view, size, size)
+        popup.animationStyle = 0
+
+        return popup
+    }
+
+    private fun setupPopupTextView() {
+        if (!mUsePopup || mPopupTextView == null) return
+
+        val labels = mPopupTextView!!
+        labels.forEach { it.text = ""; it.setBackgroundResource(R.drawable.popup_label) }
+
+        // xml popup_flickguide.xml の TextView インデックスに直接マッピング
+        // [0]=labelA(中央), [1]=labelI(左), [2]=labelU(上), [3]=labelE(右), [4]=labelO(下)
+        labels[0].text = mCurrentPopupLabels[0]
+        labels[1].text = mCurrentPopupLabels[1]
+        labels[2].text = mCurrentPopupLabels[2]
+        labels[3].text = mCurrentPopupLabels[3]
+        labels[4].text = mCurrentPopupLabels[4]
+
+        // 現在操作中の方向をハイライト
+        val flickIndex = when (isFlicked) {
+            FLICK_LEFT -> 1
+            FLICK_UP -> 2
+            FLICK_DOWN -> 4
+            else -> 0
+        }
+        labels[flickIndex].setBackgroundResource(R.drawable.popup_label_highlighted)
     }
 
     override fun handleBack(): Boolean {
@@ -91,6 +191,27 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                             return true
                         }
 
+                        mKanaKeyPressed -> {
+                            // カナキー: 全方向をフリック検知
+                            val prevFlicked = isFlicked
+                            when {
+                                dx2 > dy2 && dx2 > mFlickSensitivitySquared -> {
+                                    isFlicked = if (dx < 0) FLICK_LEFT else FLICK_NONE
+                                }
+                                dy2 > mFlickSensitivitySquared -> {
+                                    isFlicked = if (dy < 0) FLICK_UP else FLICK_DOWN
+                                }
+                                else -> {
+                                    isFlicked = FLICK_NONE
+                                }
+                            }
+                            // フリック方向変更時にガイドのハイライトを更新
+                            if (isFlicked != prevFlicked && mUsePopup) {
+                                setupPopupTextView()
+                            }
+                            return true
+                        }
+
                         dy < 0 && dx2 < dy2 -> {
                             isFlicked = FLICK_UP
                             return true
@@ -112,7 +233,6 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
                     }
                 } else {
                     isFlicked = FLICK_NONE
-                    return true // フリックなし (に戻す)
                 }
             }
         }
@@ -136,7 +256,16 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
     override fun onRelease(primaryCode: Int) {
         mSpacePressed = false
+        mKanaKeyPressed = false
         mService.resumeSuggestions()
+
+        // カナキーのフリックガイドポップアップを閉じる
+        if (mUsePopup) {
+            val popup = mPopup
+            if (popup != null && popup.isShowing) {
+                popup.dismiss()
+            }
+        }
 
         // シフトで up と none が交換される
         val flickNone = if (isShifted) FLICK_UP else FLICK_NONE
@@ -166,65 +295,71 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             }
 
             KEYCODE_QWERTY_TO_JP -> {
+                // preferFlick 設定で通常タップ/下フリックの役割を切り替え
+                // Shift状態に影響されないようisFlickedを直接比較（flickUp/flickNone変数を使用しない）
                 when (isFlicked) {
-                    if (skkPrefs.preferFlick) flickNone else FLICK_DOWN -> mService.changeToFlick()
-                    if (skkPrefs.preferFlick) FLICK_DOWN else flickNone -> mService.handleKanaKey()
-                    flickUp -> mService.pasteClip()
-                    FLICK_LEFT -> mService.showEmojiPicker()
+                    if (skkPrefs.preferFlick) FLICK_NONE else FLICK_DOWN -> mService.changeToFlick()
+                    if (skkPrefs.preferFlick) FLICK_DOWN else FLICK_NONE -> mService.handleKanaKey()
+                    FLICK_UP -> mService.pasteClip()
+                    FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
+                    else -> {}
                 }
             }
 
             KEYCODE_QWERTY_TO_SYM -> {
                 if (!isCapsLocked) isShifted = false
+                // Shift状態に影響されないようisFlickedを直接比較
                 when (isFlicked) {
-                    flickNone -> {
+                    FLICK_NONE -> {
                         keyboard = mSymbolsKeyboard
                         isShifted = keyboard.isShifted
                         isCapsLocked = keyboard.isCapsLocked
-                        // 記号は capslock にならない気がするが一応
+                        // 記号は capslock にならないが一応
                     }
-
-                    flickUp -> mService.googleTransliterate()
+                    FLICK_UP -> mService.googleTransliterate()
                     FLICK_DOWN -> mService.handleCancel()
+                    else -> {}
                 }
             }
 
             KEYCODE_QWERTY_TO_LATIN -> {
-                // 単純 shift を capslock として扱うので状態を残す
                 when (isFlicked) {
-                    FLICK_NONE, FLICK_UP -> {
-                        keyboard = mLatinKeyboard
-                        isShifted = keyboard.isShifted
-                        isCapsLocked = keyboard.isCapsLocked
-                        // latin に capslock が残っている場合がある
+                    FLICK_NONE -> {
+                        mService.mEngine.changeState(SKKASCIIState)
+                        mService.changeSoftKeyboard(SKKASCIIState)
                     }
-
+                    FLICK_UP -> {
+                        mService.mEngine.changeState(SKKASCIIState)
+                        mService.changeSoftKeyboard(SKKASCIIState)
+                    }
                     FLICK_DOWN -> {
                         mService.handleCancel()
-                        if (!isCapsLocked) isShifted = false
                     }
+                    else -> {}
                 }
             }
 
-            else -> {
-                if (primaryCode == ' '.code && mSpaceFlicked) {
-                    mService.updateSuggestionsASCII()
-                    return
+                else -> {
+                    if (primaryCode == ' '.code && mSpaceFlicked) {
+                        mService.updateSuggestionsASCII()
+                        return
+                    }
+
+                    val shiftedCode = keyboard.shiftedCodes[primaryCode] ?: 0
+                    val downCode = keyboard.downCodes[primaryCode] ?: 0
+                    val code = when (isFlicked) {
+                        FLICK_DOWN ->
+                            if (downCode > 0) downCode else primaryCode
+
+                        flickUp ->
+                            if (shiftedCode > 0) shiftedCode else primaryCode
+
+                        else -> primaryCode
+                    }
+
+                    // 現在の状態を維持したままキー入力を処理
+                    mService.processKeyIn(mService.engineState, code)
                 }
-
-                val shiftedCode = keyboard.shiftedCodes[primaryCode] ?: 0
-                val downCode = keyboard.downCodes[primaryCode] ?: 0
-                val code = when (isFlicked) {
-                    FLICK_DOWN ->
-                        if (downCode > 0) downCode else primaryCode
-
-                    flickUp ->
-                        if (shiftedCode > 0) shiftedCode else primaryCode
-
-                    else -> primaryCode
-                }
-                mService.processKey(code)
-            }
         }
         when (primaryCode) {
             Keyboard.KEYCODE_SHIFT, KEYCODE_QWERTY_TO_SYM, KEYCODE_QWERTY_TO_LATIN -> {}
@@ -238,16 +373,16 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         keyboard.keys.find { it.codes[0] == code }
 
     override fun setKeyState(state: SKKState): QwertyKeyboardView {
+        // カナキー: 状態に応じた表示
         val kanaKey = findKeyByCode(KEYCODE_QWERTY_TO_JP)
+        // 一時状態 (候補選択等) は「確定」、ひらがな状態は「かな」、他は「貼付」
         val kanaLabel = if (state.isTransient) "確定" else "かな"
-        val flickLabel = if (skkPrefs.preferGodan) "Godan" else "Flick"
-        kanaKey?.label = if (skkPrefs.preferFlick) flickLabel else kanaLabel
-        kanaKey?.downLabel = if (skkPrefs.preferFlick) kanaLabel else flickLabel
-        kanaKey?.on = state === SKKHiraganaState // Kanji とか Choose とかで消えるのがイヤなら以下にする
-        // kanaKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && mService.isHiragana)
-
+        val flickLabel = if (skkPrefs.preferFlick) "Flick" else "かな"
+        val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState)
+        kanaKey?.on = showKana
+        kanaKey?.label = if (state.isTransient) kanaLabel else if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
         val qKey = findKeyByCode('q'.code)
-        qKey?.on = (state !in listOf(SKKASCIIState, SKKZenkakuState) && !mService.isHiragana)
+        qKey?.on = state !in listOf(SKKASCIIState, SKKZenkakuState)
 
         val lKey = findKeyByCode('l'.code)
         lKey?.on = (state === SKKASCIIState)
@@ -264,6 +399,43 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         if (mSpacePressed) {
             mService.suspendSuggestions()
         }
+
+        // カナキー押下時のフリックガイドポップアップ表示
+        mKanaKeyPressed = (primaryCode == KEYCODE_QWERTY_TO_JP)
+        if (mKanaKeyPressed && mUsePopup) {
+            // フリックガイドラベルを設定（xmlのTextViewインデックスに合わせる）
+            val labels = mFlickGuideLabelList.get(KEYCODE_QWERTY_TO_JP)
+            if (labels != null) {
+                for (i in labels.indices) {
+                    if (i < mCurrentPopupLabels.size) {
+                        mCurrentPopupLabels[i] = labels[i]
+                    }
+                }
+            }
+            setupPopupTextView()
+
+            // ポップアップ位置を再計算（ACTION_DOWNで更新済み）
+            calculatePopupPos()
+
+            val popup = mPopup
+            if (popup != null) {
+                if (mFixedPopup) {
+                    popup.showAtLocation(
+                        this,
+                        Gravity.NO_GRAVITY,
+                        mFixedPopupPos[0],
+                        mFixedPopupPos[1]
+                    )
+                } else {
+                    popup.showAtLocation(
+                        this,
+                        Gravity.NO_GRAVITY,
+                        flickStartX.toInt() + mPopupOffset[0],
+                        flickStartY.toInt() + mPopupOffset[1]
+                    )
+                }
+            }
+        }
     }
 
     override fun onText(text: CharSequence) {}
@@ -275,6 +447,22 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
     override fun swipeDown() {}
 
     override fun swipeUp() {}
+
+    private fun calculatePopupPos() {
+        val scale = context.resources.displayMetrics.density
+        val size = (mPopupSize * scale + 0.5f).toInt()
+
+        val offsetInWindow = IntArray(2)
+        getLocationInWindow(offsetInWindow)
+        val windowLocation = IntArray(2)
+        getLocationOnScreen(windowLocation)
+        mPopupOffset[0] = -size / 2
+        mPopupOffset[1] = -windowLocation[1] + offsetInWindow[1] - size / 2
+        mFixedPopupPos[0] = windowLocation[0] + this.width / 2 + mPopupOffset[0]
+        mFixedPopupPos[1] = windowLocation[1] - size / 2 + mPopupOffset[1]
+    }
+
+
 
     companion object {
         private const val KEYCODE_QWERTY_TO_JP = -1008
