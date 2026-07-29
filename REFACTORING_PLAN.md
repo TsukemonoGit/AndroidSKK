@@ -180,9 +180,8 @@ MotionEvent.ACTION_DOWN -> {
 3. ~~FlickJPKeyboardViewの `onSetShifted()` 関数のリファクタリング~~ ✅ 完了（6関数に分割）
 4. ~~FlickJPKeyboardViewの `release()` 関数のリファクタリング~~ ✅ 完了（10関数に分割）
 5. ~~`suspendSuggestions()`/`resumeSuggestions()`呼び出しのパターン統一~~ ✅ 完了（try-finally化）
-6. キー配置とpopupラベルの自動生成ロジックの見直し
-7. 既存テスト `RomajiConverterTest.testConvertLastChar` の修正
-8. バグ再調査: Shift→YA/YU/YO入力での変換モードキャンセル
+6. ~~既存テスト `RomajiConverterTest.testConvertLastChar` の修正~~ ✅ 成功
+7. バグ再調査: Shift→YA/YU/YO入力での変換モードキャンセル
 
 ---
 

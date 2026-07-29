@@ -114,6 +114,25 @@
 - processMAKey(flick)
 - processRAKey(flick)
 - processYAKey(flick)
+
+---
+
+## 2026-07-29 テスト確認・バグ分析
+
+### RomajiConverterTest.testConvertLastChar
+- テスト実行結果: **成功**（PLANに"既知の既存テスト失敗"とあったが、現在は成功）
+
+### Shift→YA/YU/YO変換モードキャンセルバグ分析
+
+**バグ症状**:
+- 変換モードに入った直後、Shiftキー→YA/YU/YOキーで変換モードがキャンセルされる
+- 2文字目以降は正常
+
+**考察**:
+- `cleanupState()`で`mLastPressedKey != KEYCODE_SHIFT`時に`isShifted = false`を呼び出すのは意図的
+- `processYAKey()`の`withSuggestionsSuspended{processKey('y'); processKey(vowel)}`が変換モードに影響
+- 変換モード直中は候補が未確定なため、英字入力で変換がキャンセルされる可能性
+- 原因特定には`SKKEngine.processKey()`の実装確認が必要
 - [x] Step 2: データ駆動化
 - [x] Step 3: processFlickForLetter()再構築
 - [x] Step 4: テスト追加
