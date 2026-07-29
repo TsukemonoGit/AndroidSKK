@@ -92,6 +92,28 @@
 ### 進捗
 
 - [x] Step 1: 関数分割
+
+---
+
+## 2026-07-29 try-finallyパターン化
+
+### 目的
+`suspendSuggestions()`/`resumeSuggestions()`呼び出しの統一と、例外時の再開漏れ防止
+
+### 変更内容
+- `withSuggestionsSuspended(block: () -> Unit)`拡張関数を追加
+- 全キー処理関数（KA, SA, TA, NA, HA, MA, RA, YA）でtry-finally化
+- resumeSuggestionsがfinallyブロックで確実に呼ばれるように
+
+### 書き換え済み関数
+- processKAKey(flick)
+- processSAKey(flick)
+- processTAKey(flick)（特殊な分岐パターン）
+- processNAKey(flick)
+- processHAKey(flick)
+- processMAKey(flick)
+- processRAKey(flick)
+- processYAKey(flick)
 - [x] Step 2: データ駆動化
 - [x] Step 3: processFlickForLetter()再構築
 - [x] Step 4: テスト追加

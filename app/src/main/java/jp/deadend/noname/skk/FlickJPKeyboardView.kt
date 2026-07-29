@@ -480,6 +480,18 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             curveDetector.isCurve(flick)
 
     /**
+     * 提案機能を一時停止してブロックを実行、確実に再開する
+     */
+    private fun withSuggestionsSuspended(block: () -> Unit) {
+        mService.suspendSuggestions()
+        try {
+            block()
+        } finally {
+            mService.resumeSuggestions()
+        }
+    }
+
+    /**
      * Aキーのフリック入力を処理する
      *
      * - LEFTカーブ: x+a（小文字）+ Enter（選択状態なら）
@@ -514,12 +526,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - LEFT+rightCurve: 特殊ケース（TAの場合のみ小さい「っ」）
      */
     private fun processKAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        val consonant = if (isRightCurve(flick)) 'g'.code else 'k'.code
-        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-        else mService.processKey(consonant)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            val consonant = if (isRightCurve(flick)) 'g'.code else 'k'.code
+            if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+            else mService.processKey(consonant)
+            mService.processKey(vowel)
+        }
     }
 
     /**
@@ -530,19 +543,21 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - LEFT+rightCurve: 小さい「っ」（特殊処理）
      */
     private fun processTAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
+        val vowel = flickProcessor.getVowelForFlick(flick)
         val consonant = if (isRightCurve(flick)) 'd'.code else 't'.code
         if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
         else mService.processKey(consonant)
 
         // 小さい「っ」: LEFTカーブ + RIGHTカーブ（tキーのみ）
         if (isLeftCurve(flick) && consonant == 't'.code) {
-            mService.processKey(flickProcessor.getVowelForFlick(flick))
-            mService.resumeSuggestions()
-            mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+            withSuggestionsSuspended {
+                mService.processKey(vowel)
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+            }
         } else {
-            mService.resumeSuggestions()
-            mService.processKey(flickProcessor.getVowelForFlick(flick))
+            withSuggestionsSuspended {
+                mService.processKey(vowel)
+            }
         }
     }
 
@@ -552,11 +567,12 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - 通常: な行（シフトで大文字）
      */
     private fun processNAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        if (isShifted) mService.processKey(Character.toUpperCase('n'.toChar()).code)
-        else mService.processKey('n'.code)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            if (isShifted) mService.processKey(Character.toUpperCase('n'.toChar()).code)
+            else mService.processKey('n'.code)
+            mService.processKey(vowel)
+        }
     }
 
     /**
@@ -567,16 +583,17 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - LEFT: ぱ行
      */
     private fun processHAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        val consonant = when {
-            isRightCurve(flick) -> 'b'.code
-            isLeftCurve(flick) -> 'p'.code
-            else -> 'h'.code
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            val consonant = when {
+                isRightCurve(flick) -> 'b'.code
+                isLeftCurve(flick) -> 'p'.code
+                else -> 'h'.code
+            }
+            if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+            else mService.processKey(consonant)
+            mService.processKey(vowel)
         }
-        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-        else mService.processKey(consonant)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
     }
 
     /**
@@ -585,11 +602,12 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - 通常: ま行（シフトで大文字）
      */
     private fun processMAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        if (isShifted) mService.processKey(Character.toUpperCase('m'.toChar()).code)
-        else mService.processKey('m'.code)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            if (isShifted) mService.processKey(Character.toUpperCase('m'.toChar()).code)
+            else mService.processKey('m'.code)
+            mService.processKey(vowel)
+        }
     }
 
     /**
@@ -598,11 +616,12 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - 通常: ら行（シフトで大文字）
      */
     private fun processRAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        if (isShifted) mService.processKey(Character.toUpperCase('r'.toChar()).code)
-        else mService.processKey('r'.code)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            if (isShifted) mService.processKey(Character.toUpperCase('r'.toChar()).code)
+            else mService.processKey('r'.code)
+            mService.processKey(vowel)
+        }
     }
 
     /**
@@ -612,12 +631,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - RIGHT: ざ行
      */
     private fun processSAKey(flick: EnumSet<FlickState>) {
-        mService.suspendSuggestions()
-        val consonant = if (isRightCurve(flick)) 'z'.code else 's'.code
-        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-        else mService.processKey(consonant)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        val vowel = flickProcessor.getVowelForFlick(flick)
+        withSuggestionsSuspended {
+            val consonant = if (isRightCurve(flick)) 'z'.code else 's'.code
+            if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+            else mService.processKey(consonant)
+            mService.processKey(vowel)
+        }
     }
 
     /**
@@ -649,10 +669,10 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             return
         }
 
-        mService.suspendSuggestions()
-        mService.processKey('y'.code)
-        mService.resumeSuggestions()
-        mService.processKey(flickProcessor.getVowelForFlick(flick))
+        withSuggestionsSuspended {
+            mService.processKey('y'.code)
+            mService.processKey(flickProcessor.getVowelForFlick(flick))
+        }
     }
 
     /**
