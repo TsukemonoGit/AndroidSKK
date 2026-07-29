@@ -24,6 +24,7 @@ import jp.deadend.noname.skk.engine.SKKZenkakuState
 
 class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         KeyboardView(context, attrs), KeyboardView.OnKeyboardActionListener {
+    private val flickProcessor = FlickKeyProcessor()
     private var mLastPressedKey = KEYCODE_FLICK_JP_NONE
     private var mFlickState = EnumSet.of(FlickState.NONE)
     private var mFlickStartX = -1f
@@ -483,6 +484,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                 mFlickStartY = me.y
                 mArrowStartX = me.x
                 mArrowStartY = me.y
+                mFlickState = EnumSet.of(FlickState.NONE)
             }
             MotionEvent.ACTION_MOVE -> {
                 val dx = me.x - mFlickStartX
@@ -648,175 +650,201 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun processFlickForLetter(keyCode: Int, flick: EnumSet<FlickState>) {
-        val vowel =
-                when {
-                    flick.contains(FlickState.LEFT) -> 'i'
-                    flick.contains(FlickState.UP) -> 'u'
-                    flick.contains(FlickState.RIGHT) -> 'e'
-                    flick.contains(FlickState.DOWN) -> 'o'
-                    else -> 'a'
-                }.code
+        val vowel = flickProcessor.getVowelForFlick(flick)
 
-        val consonant: Int =
-                when (keyCode) {
-                    KEYCODE_FLICK_JP_CHAR_A -> {
-                        if (isLeftCurve(flick)) {
-                            if (mService.engineState === SKKChooseState) {
-                                mService.handleEnter() // x の前に確定しておく
-                            }
-                            mService.processKey('x'.code)
-                            mService.processKey(vowel)
-                        } else if (!mService.isHiragana &&
-                                        flick == EnumSet.of(FlickState.UP, FlickState.CURVE_RIGHT)
-                        ) {
-                            mService.processKey('v'.code)
-                            mService.processKey('u'.code)
-                        } else if (isShifted) {
-                            mService.processKey(Character.toUpperCase(vowel))
-                        } else {
-                            mService.processKey(vowel)
-                        }
-                        return
+        when (keyCode) {
+            KEYCODE_FLICK_JP_CHAR_A -> {
+                // Aキー特別処理
+                if (isLeftCurve(flick)) {
+                    if (mService.engineState === SKKChooseState) {
+                        mService.handleEnter()
                     }
-                    KEYCODE_FLICK_JP_CHAR_KA -> if (isRightCurve(flick)) 'g' else 'k'
-                    KEYCODE_FLICK_JP_CHAR_SA -> if (isRightCurve(flick)) 'z' else 's'
-                    KEYCODE_FLICK_JP_CHAR_TA -> if (isRightCurve(flick)) 'd' else 't'
-                    KEYCODE_FLICK_JP_CHAR_NA -> 'n'
-                    KEYCODE_FLICK_JP_CHAR_HA ->
-                            when {
-                                isRightCurve(flick) -> 'b'
-                                isLeftCurve(flick) -> 'p'
-                                else -> 'h'
-                            }
-                    KEYCODE_FLICK_JP_CHAR_MA -> 'm'
-                    KEYCODE_FLICK_JP_CHAR_YA -> {
-                        val yaSymbol =
-                                when {
-                                    flick.contains(FlickState.LEFT) ->
-                                            when {
-                                                isCurve(flick) -> '['
-                                                else -> '('
-                                            }
-                                    flick.contains(FlickState.RIGHT) ->
-                                            when {
-                                                isCurve(flick) -> ']'
-                                                else -> ')'
-                                            }
-                                    else -> 'y'
-                                }
-                        if (yaSymbol != 'y') {
-                            if (isRightCurve(flick)) {
-                                mService.processKey('z'.code)
-                            }
-                            mService.processKey(yaSymbol.code)
-                            return
-                        }
-                        'y'
-                    }
-                    KEYCODE_FLICK_JP_CHAR_RA -> 'r'
-                    KEYCODE_FLICK_JP_CHAR_WA -> {
-                        when (flick) {
-                            EnumSet.of(FlickState.NONE) -> {
-                                if (isShifted) {
-                                    mService.processKey('W'.code)
-                                } else {
-                                    mService.processKey('w'.code)
-                                }
-                                mService.processKey('a'.code)
-                            }
-                            EnumSet.of(FlickState.NONE, FlickState.CURVE_LEFT) -> {
-                                if (isShifted) {
-                                    mService.processKey('X'.code)
-                                } else {
-                                    mService.processKey('x'.code)
-                                }
-                                mService.processKey('w'.code)
-                                mService.processKey('a'.code)
-                            }
-                            EnumSet.of(FlickState.LEFT) -> {
-                                mService.processKey('w'.code)
-                                mService.processKey('o'.code)
-                            }
-                            EnumSet.of(FlickState.UP) -> {
-                                if (isShifted) {
-                                    mService.processKey('N'.code)
-                                } else {
-                                    mService.processKey('n'.code)
-                                }
-                                mService.processKey('n'.code)
-                            }
-                            EnumSet.of(FlickState.RIGHT) -> mService.processKey('-'.code)
-                            EnumSet.of(FlickState.DOWN) -> mService.processKey('~'.code)
-                        }
-                        return
-                    }
-                    KEYCODE_FLICK_JP_CHAR_TEN -> {
-                        when (flick) {
-                            EnumSet.of(FlickState.NONE) -> mService.processKey(','.code)
-                            EnumSet.of(FlickState.LEFT) -> mService.processKey('.'.code)
-                            EnumSet.of(FlickState.UP) -> mService.processKey('?'.code)
-                            EnumSet.of(FlickState.RIGHT) -> mService.processKey('!'.code)
-                            EnumSet.of(FlickState.DOWN) -> {
-                                mService.processKey('z'.code)
-                                mService.processKey('.'.code)
-                            }
-                        }
-                        return
-                    }
-                    KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED -> {
-                        when (flick) {
-                            EnumSet.of(FlickState.NONE) ->
-                                    mService.processKeyIn(SKKZenkakuState, ' '.code)
-                            EnumSet.of(FlickState.LEFT) -> mService.processKey('('.code)
-                            EnumSet.of(FlickState.UP) -> mService.processKey('['.code)
-                            EnumSet.of(FlickState.RIGHT) -> mService.processKey(')'.code)
-                            EnumSet.of(FlickState.DOWN) -> mService.processKey(']'.code)
-                        }
-                        return
-                    }
-                    KEYCODE_FLICK_JP_CHAR_TEN_NUM -> {
-                        when (flick) {
-                            EnumSet.of(FlickState.NONE) -> mService.commitTextSKK(",")
-                            EnumSet.of(FlickState.LEFT) -> mService.commitTextSKK(".")
-                            EnumSet.of(FlickState.UP) -> mService.commitTextSKK("-")
-                            EnumSet.of(FlickState.RIGHT) -> mService.commitTextSKK(":")
-                            EnumSet.of(FlickState.DOWN) -> mService.commitTextSKK("/")
-                        }
-                        return
-                    }
-                    KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT -> {
-                        when (flick) {
-                            EnumSet.of(FlickState.NONE) -> mService.commitTextSKK("#")
-                            EnumSet.of(FlickState.LEFT) -> mService.commitTextSKK("￥")
-                            EnumSet.of(FlickState.UP) -> mService.commitTextSKK("+")
-                            EnumSet.of(FlickState.RIGHT) -> mService.commitTextSKK("$")
-                            EnumSet.of(FlickState.DOWN) -> mService.commitTextSKK("*")
-                        }
-                        return
-                    }
-                    else -> return
-                }.code
-
-        mService.suspendSuggestions()
-        if (isShifted) {
-            mService.processKey(Character.toUpperCase(consonant))
-        } else {
-            mService.processKey(consonant)
-        }
-
-        if (isLeftCurve(flick)) {
-            if (consonant == 't'.code && vowel == 'u'.code ||
-                            consonant == 'y'.code &&
-                                    (vowel == 'a'.code || vowel == 'u'.code || vowel == 'o'.code)
-            ) {
-                mService.processKey(vowel)
-                mService.resumeSuggestions()
-                mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
-                return
+                    mService.processKey('x'.code)
+                    mService.processKey(vowel)
+                } else if (!mService.isHiragana &&
+                        flick == EnumSet.of(FlickState.UP, FlickState.CURVE_RIGHT)
+                ) {
+                    mService.processKey('v'.code)
+                    mService.processKey('u'.code)
+                } else if (isShifted) {
+                    mService.processKey(Character.toUpperCase(vowel.toChar()).code)
+                } else {
+                    mService.processKey(vowel)
+                }
             }
+
+            KEYCODE_FLICK_JP_CHAR_KA -> {
+                mService.suspendSuggestions()
+                val consonant = if (isRightCurve(flick)) 'g'.code else 'k'.code
+                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+                else mService.processKey(consonant)
+                if (isLeftCurve(flick) && consonant == 't'.code) {
+                    mService.processKey(vowel)
+                    mService.resumeSuggestions()
+                    mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+                } else {
+                    mService.resumeSuggestions()
+                    mService.processKey(vowel)
+                }
+            }
+            KEYCODE_FLICK_JP_CHAR_SA -> {
+                mService.suspendSuggestions()
+                val consonant = if (isRightCurve(flick)) 'z'.code else 's'.code
+                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+                else mService.processKey(consonant)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_TA -> {
+                mService.suspendSuggestions()
+                val consonant = if (isRightCurve(flick)) 'd'.code else 't'.code
+                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+                else mService.processKey(consonant)
+                if (isLeftCurve(flick) && consonant == 't'.code) {
+                    mService.processKey(vowel)
+                    mService.resumeSuggestions()
+                    mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+                } else {
+                    mService.resumeSuggestions()
+                    mService.processKey(vowel)
+                }
+            }
+            KEYCODE_FLICK_JP_CHAR_NA -> {
+                mService.suspendSuggestions()
+                if (isShifted) mService.processKey(Character.toUpperCase('n'.toChar()).code)
+                else mService.processKey('n'.code)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_HA -> {
+                mService.suspendSuggestions()
+                val consonant = when {
+                    isRightCurve(flick) -> 'b'.code
+                    isLeftCurve(flick) -> 'p'.code
+                    else -> 'h'.code
+                }
+                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+                else mService.processKey(consonant)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_MA -> {
+                mService.suspendSuggestions()
+                if (isShifted) mService.processKey(Character.toUpperCase('m'.toChar()).code)
+                else mService.processKey('m'.code)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_YA -> {
+                val symbol = when {
+                    flick.contains(FlickState.LEFT) -> {
+                        when {
+                            isCurve(flick) -> '['
+                            else -> '('
+                        }
+                    }
+                    flick.contains(FlickState.RIGHT) -> {
+                        when {
+                            isCurve(flick) -> ']'
+                            else -> ')'
+                        }
+                    }
+                    else -> null
+                }
+                if (symbol != null) {
+                    if (isRightCurve(flick)) mService.processKey('z'.code)
+                    mService.processKey(symbol.code)
+                    return
+                }
+                mService.suspendSuggestions()
+                if (isShifted) mService.processKey('y'.code)
+                else mService.processKey('y'.code)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_RA -> {
+                mService.suspendSuggestions()
+                if (isShifted) mService.processKey(Character.toUpperCase('r'.toChar()).code)
+                else mService.processKey('r'.code)
+                mService.resumeSuggestions()
+                mService.processKey(vowel)
+            }
+            KEYCODE_FLICK_JP_CHAR_WA -> {
+                when (flick) {
+                    EnumSet.of(FlickState.NONE) -> {
+                        mService.processKey(if (isShifted) 'W'.code else 'w'.code)
+                        mService.processKey('a'.code)
+                    }
+                    EnumSet.of(FlickState.NONE, FlickState.CURVE_LEFT) -> {
+                        mService.processKey(if (isShifted) 'X'.code else 'x'.code)
+                        mService.processKey('w'.code)
+                        mService.processKey('a'.code)
+                    }
+                    EnumSet.of(FlickState.LEFT) -> {
+                        mService.processKey('w'.code)
+                        mService.processKey('o'.code)
+                    }
+                    EnumSet.of(FlickState.UP) -> {
+                        mService.processKey(if (isShifted) 'N'.code else 'n'.code)
+                        mService.processKey('n'.code)
+                    }
+                    EnumSet.of(FlickState.RIGHT) -> mService.processKey('-'.code)
+                    EnumSet.of(FlickState.DOWN) -> mService.processKey('~'.code)
+                }
+            }
+            KEYCODE_FLICK_JP_CHAR_TEN -> {
+                val keyMap = mapOf(
+                    EnumSet.of(FlickState.NONE) to '、'.code,
+                    EnumSet.of(FlickState.LEFT) to '。'.code,
+                    EnumSet.of(FlickState.UP) to '？'.code,
+                    EnumSet.of(FlickState.RIGHT) to '！'.code,
+                )
+                when {
+                    flick in keyMap -> mService.processKey(keyMap[flick]!!)
+                    flick == EnumSet.of(FlickState.DOWN) -> {
+                        mService.processKey('z'.code)
+                        mService.processKey('。'.code)
+                    }
+                }
+            }
+            KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED -> {
+                val keyMap = mapOf(
+                    EnumSet.of(FlickState.NONE) to ' '.code,
+                    EnumSet.of(FlickState.LEFT) to '（'.code,
+                    EnumSet.of(FlickState.UP) to '「'.code,
+                    EnumSet.of(FlickState.RIGHT) to '）'.code,
+                    EnumSet.of(FlickState.DOWN) to '」'.code,
+                )
+                keyMap[flick]?.let { key ->
+                    if (flick == EnumSet.of(FlickState.NONE)) {
+                        mService.processKeyIn(SKKZenkakuState, key)
+                    } else {
+                        mService.processKey(key)
+                    }
+                }
+            }
+            KEYCODE_FLICK_JP_CHAR_TEN_NUM -> {
+                val keyMap = mapOf(
+                    EnumSet.of(FlickState.NONE) to "，",
+                    EnumSet.of(FlickState.LEFT) to "．",
+                    EnumSet.of(FlickState.UP) to "－",
+                    EnumSet.of(FlickState.RIGHT) to "：",
+                    EnumSet.of(FlickState.DOWN) to "／",
+                )
+                keyMap[flick]?.let { mService.commitTextSKK(it) }
+            }
+            KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT -> {
+                val keyMap = mapOf(
+                    EnumSet.of(FlickState.NONE) to "＃",
+                    EnumSet.of(FlickState.LEFT) to "￥",
+                    EnumSet.of(FlickState.UP) to "＋",
+                    EnumSet.of(FlickState.RIGHT) to "＄",
+                    EnumSet.of(FlickState.DOWN) to "＊",
+                )
+                keyMap[flick]?.let { mService.commitTextSKK(it) }
+            }
+            else -> return
         }
-        mService.resumeSuggestions()
-        mService.processKey(vowel)
     }
 
     override fun onLongPress(key: Keyboard.Key): Boolean {
@@ -1150,14 +1178,6 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         private const val KEYCODE_FLICK_JP_SPEECH = -1012
         private const val KEYCODE_FLICK_JP_GOOGLE = -1013
 
-        private enum class FlickState {
-            NONE,
-            LEFT,
-            UP,
-            RIGHT,
-            DOWN,
-            CURVE_LEFT,
-            CURVE_RIGHT
-        }
+
     }
 }
