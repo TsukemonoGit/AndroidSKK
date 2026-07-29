@@ -578,3 +578,141 @@
 | {CURVE_LEFT, CURVE_RIGHT} | true | true | true |
 | {NONE} | false | false | false |
 | {} | false | false | false |
+
+### 2026-07-29 作業記録（続き11）
+
+#### Processor/Config/DetectorクラスのFlickJPKeyboardViewへの統合
+
+**目的**: 新規作成したProcessor類をFlickJPKeyboardViewに統合し、inline logicを置換
+
+**更新ファイル**: `FlickJPKeyboardView.kt`
+
+**変更箇所:**
+
+1. **フィールド追加** - 11個のProcessorインスタンスをフィールドとして追加
+   - `flickProcessor`, `curveDetector`, `arrowKeyProcessor`, `backspaceKeyProcessor`
+   - `enterKeyProcessor`, `shiftToggleProcessor`, `komojiKeyProcessor`
+   - `mojiKeyProcessor`, `toQwertyKeyProcessor`, `spaceKeyProcessor`
+   - `mushroomKeyProcessor`
+
+2. **`release()`メソッドの置換**:
+   - `KEYCODE_FLICK_JP_SPACE` → `mushroomKeyProcessor.processMushroomKey()`
+   - `Keyboard.KEYCODE_SHIFT` → `shiftToggleProcessor.toggleShift()`
+   - `KEYCODE_FLICK_JP_ENTER` → `enterKeyProcessor.processEnterKey()`
+   - `KEYCODE_FLICK_JP_KOMOJI` → `komojiKeyProcessor.processKomojiKey()`
+   - `KEYCODE_FLICK_JP_MOJI` → `mojiKeyProcessor.processMojiKey()`
+   - `KEYCODE_FLICK_JP_TO_QWERTY` → `toQwertyKeyProcessor.processToQwertyKey()`
+
+3. **`onKey()`メソッドの置換**:
+   - `Keyboard.KEYCODE_DELETE` → `backspaceKeyProcessor.processBackspaceKey()`
+   - `KEYCODE_FLICK_JP_LEFT/RIGHT` → `arrowKeyProcessor.processArrowKey()`
+   - `KEYCODE_FLICK_JP_SPACE` → `spaceKeyProcessor.processSpaceKey()`
+
+4. **`CurveDetector`によるカーブ判定関数の置換**:
+   - `isLeftCurve()` → `curveDetector.isLeftCurve()`
+   - `isRightCurve()` → `curveDetector.isRightCurve()`
+   - `isCurve()` → `curveDetector.isCurve()`
+
+**更新ファイル**: `QwertyKeyboardView.kt`
+
+**変更箇所:**
+
+1. **フィールド追加** - 2個のProcessorインスタンス
+   - `backspaceKeyProcessor`, `enterKeyProcessor`
+
+2. **`onKey()`メソッドの置換**:
+   - `Keyboard.KEYCODE_DELETE` → `backspaceKeyProcessor.processBackspaceKey()`
+   - `KEYCODE_QWERTY_ENTER` → `enterKeyProcessor.processEnterKey()`
+
+**動作確認**:
+- ビルド: `./gradlew compileDebugKotlin` → **SUCCESS**
+- テスト: `./gradlew test` → **SUCCESS** (全テストパス)
+
+**設計方針:**
+- Processorは純粋なenumアクションを返すのみ
+- Viewクラスはenumに基づいて`SKKService`を呼び出す
+- 境界線は明確に保たれる
+
+### 2026-07-29 作業記録（続き12 - 最終統合）
+
+#### 未統合4クラスの最終統合
+
+**未統合だったクラス:**
+
+| クラス | 対象メソッド | 変更内容 |
+|--------|-------------|---------|
+| `ToKanaKeyProcessor` | `release()` - TO_KANA | `processToKanaKey()` / `calculateHankakuState()` |
+| `PopupConfig` | `readPrefs()` - popup | `getPopupConfig()` / `isEnabled()` / `isFixed()` |
+| `TenKeyLabelConfig` | `readPrefs()` - 句読点 | `getTenKeyLabelConfig()` |
+| `KomojiLabelConfig` | `readPrefs()` - 小キー | `getKomojiLabelConfig()` |
+
+**`release()` - TO_KANAの置換:**
+
+Before:
+```kotlin
+KEYCODE_FLICK_JP_TO_KANA ->
+    if (keyboard !== mJPKeyboard) {
+        keyboard = mJPKeyboard
+        isHankaku = mService.kanaState == SKKHanKanaState
+        if (skkPrefs.preferGodan) mService.changeSoftKeyboard(SKKHiraganaState)
+    }
+```
+
+After:
+```kotlin
+KEYCODE_FLICK_JP_TO_KANA -> {
+    val kanaAction = toKanaKeyProcessor.processToKanaKey(keyboard !== mJPKeyboard)
+    if (kanaAction == ToKanaKeyProcessor.ToKanaAction.SWITCH_TO_JP) {
+        keyboard = mJPKeyboard
+        isHankaku = toKanaKeyProcessor.calculateHankakuState(mService.kanaState)
+        if (skkPrefs.preferGodan) mService.changeSoftKeyboard(SKKHiraganaState)
+    }
+}
+```
+
+**`readPrefs()` - 句読点の置換 (30行→3行):**
+
+Before: `when (skkPrefs.kutoutenType)` で3分支
+After: `tenKeyLabelConfig.getTenKeyLabelConfig(skkPrefs.kutoutenType)` に委譲
+
+**`readPrefs()` - 小キーラベルの置換 (20行→3行):**
+
+Before: `when { useSoftCancelKey/SoftTransKey }` で3分支
+After: `komojiLabelConfig.getKomojiLabelConfig()` に委譲
+
+**`readPrefs()` - ポップアップの置換 (20行→10行):**
+
+Before: `mUsePopup = skkPrefs.usePopup; mFixedPopup = skkPrefs.useFixedPopup`
+After: `popupConfig.getPopupConfig()` / `isEnabled()` / `isFixed()`
+
+**`ToKanaKeyProcessor`の型修正:**
+
+- `calculateHankakuState(kanaState: String?)` → `calculateHankakuState(kanaState: Any?)`
+- `"HAN_KANA"` 文字列比較 → `=== SKKHanKanaState` オブジェクト比較
+- テストも`SKKHanKanaState`等に変更
+
+**動作確認:**
+- ビルド: `./gradlew compileDebugKotlin` → **SUCCESS**
+- テスト: `./gradlew test` → **SUCCESS** (274テスト全通過、1失敗→修正)
+
+**リファクタリング完了確認:**
+
+| Processor/Config/Detector | FlickJPKeyboardView | QwertyKeyboardView |
+|---------------------------|---------------------|-------------------|
+| FlickKeyProcessor | ✅ flickProcessor | - |
+| CurveDetector | ✅ curveDetector | - |
+| ArrowKeyProcessor | ✅ arrowKeyProcessor | - |
+| BackspaceKeyProcessor | ✅ backspaceKeyProcessor | ✅ backspaceKeyProcessor |
+| EnterKeyProcessor | ✅ enterKeyProcessor | ✅ enterKeyProcessor |
+| ShiftToggleProcessor | ✅ shiftToggleProcessor | - |
+| KomojiKeyProcessor | ✅ komojiKeyProcessor | - |
+| MojiKeyProcessor | ✅ mojiKeyProcessor | - |
+| ToQwertyKeyProcessor | ✅ toQwertyKeyProcessor | - |
+| SpaceKeyProcessor | ✅ spaceKeyProcessor | - |
+| MushroomKeyProcessor | ✅ mushroomKeyProcessor | - |
+| ToKanaKeyProcessor | ✅ toKanaKeyProcessor | - |
+| PopupConfig | ✅ popupConfig | - |
+| TenKeyLabelConfig | ✅ tenKeyLabelConfig | - |
+| KomojiLabelConfig | ✅ komojiLabelConfig | - |
+
+**全16クラスのproduction code統合完了** ✅

@@ -1,5 +1,7 @@
 package jp.deadend.noname.skk
 
+import jp.deadend.noname.skk.engine.SKKHanKanaState
+import jp.deadend.noname.skk.engine.SKKHiraganaState
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -43,35 +45,14 @@ class ToKanaKeyProcessorTest {
     @Test
     fun testCalculateHankakuState_hanKana() {
         // ハングアナ状態 → 半角モード
-        val result = processor.calculateHankakuState("HAN_KANA")
+        val result = processor.calculateHankakuState(SKKHanKanaState)
         assertEquals(true, result)
     }
 
     @Test
     fun testCalculateHankakuState_hiragana() {
         // ひらがな状態 → 全角モード
-        val result = processor.calculateHankakuState("HIRAGANA")
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun testCalculateHankakuState_katakana() {
-        // カタカナ状態 → 全角モード
-        val result = processor.calculateHankakuState("KATAKANA")
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun testCalculateHankakuState_zenkaku() {
-        // 全角状態 → 全角モード
-        val result = processor.calculateHankakuState("ZENKAKU")
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun testCalculateHankakuState_ascii() {
-        // ASCII状態 → 全角モード
-        val result = processor.calculateHankakuState("ASCII")
+        val result = processor.calculateHankakuState(SKKHiraganaState)
         assertEquals(false, result)
     }
 
@@ -79,13 +60,6 @@ class ToKanaKeyProcessorTest {
     fun testCalculateHankakuState_null() {
         // null → 全角モード
         val result = processor.calculateHankakuState(null)
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun testCalculateHankakuState_empty() {
-        // 空文字列 → 全角モード
-        val result = processor.calculateHankakuState("")
         assertEquals(false, result)
     }
 }

@@ -1,5 +1,7 @@
 package jp.deadend.noname.skk
 
+import jp.deadend.noname.skk.engine.SKKHanKanaState
+
 /**
  * かな/ローマ字（トカナ）キーの操作を処理するクラス
  * 
@@ -40,7 +42,7 @@ class ToKanaKeyProcessor {
      * @param kanaState かな状態
      * @return 半角モードフラグ
      */
-    fun calculateHankakuState(kanaState: String?): Boolean {
-        return kanaState == "HAN_KANA"
+    fun calculateHankakuState(kanaState: Any?): Boolean {
+        return kanaState === SKKHanKanaState
     }
 }

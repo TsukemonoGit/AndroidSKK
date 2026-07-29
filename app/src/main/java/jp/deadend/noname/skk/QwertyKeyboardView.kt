@@ -17,6 +17,9 @@ import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
 class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
+    private val backspaceKeyProcessor = BackspaceKeyProcessor()
+    private val enterKeyProcessor = EnterKeyProcessor()
+
     val mLatinKeyboard: Keyboard by lazy {
         Keyboard(context, R.xml.qwerty, mService.mScreenWidth, mService.mScreenHeight)
     }
@@ -244,7 +247,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             // repeatable
             Keyboard.KEYCODE_DELETE -> {
                 if (!isCapsLocked) isShifted = false
-                if (!mService.handleBackspace()) mService.pressDel()
+                val backspaceAction = backspaceKeyProcessor.processBackspaceKey(mService.handleBackspace())
+                if (backspaceAction == BackspaceKeyProcessor.BackspaceAction.PRESS_DEL) {
+                    mService.pressDel()
+                }
             }
             // codes[0] 以外
             Keyboard.KEYCODE_CAPSLOCK -> {
@@ -291,7 +297,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
             KEYCODE_QWERTY_ENTER -> {
                 if (!isCapsLocked) isShifted = false
-                if (!mService.handleEnter()) mService.pressEnter()
+                val enterAction = enterKeyProcessor.processEnterKey(mService.handleEnter())
+                if (enterAction == EnterKeyProcessor.EnterAction.PRESS_ENTER) {
+                    mService.pressEnter()
+                }
             }
 
             KEYCODE_QWERTY_TO_JP -> {
