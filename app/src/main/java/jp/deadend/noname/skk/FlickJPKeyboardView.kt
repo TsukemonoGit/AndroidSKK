@@ -210,52 +210,66 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
 
     private fun onSetShifted() {
         if (isShifted) {
-            mKutoutenKey.codes[0] = KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED
-            mKutoutenKey.label = "「\n（□）\n」"
-            mSpaceKey.label = "設定"
-            mQwertyKey.label = "全角ａ\n☻略記\nqwerty"
-
-            var key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
-            if (key != null) {
-                key.label =
-                        if (mService.kanaState === SKKHanKanaState) "10\n：カナ>\n声" else "10\n：ｶﾅ>\n声"
-            }
-
-            // ＜＞を変更
-            key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_LEFT)
-            if (key != null) {
-                key.codes[0] = KEYCODE_FLICK_JP_PASTE
-                key.label = "貼付"
-            }
-            key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_RIGHT)
-            if (key != null) {
-                key.codes[0] = KEYCODE_FLICK_JP_GOOGLE
-                key.label = "Google"
-            }
+            setupShiftedKeysOn()
         } else {
-            mKutoutenKey.codes[0] = KEYCODE_FLICK_JP_CHAR_TEN
-            mKutoutenKey.label = mKutoutenLabel
-            mSpaceKey.label = ""
-            mQwertyKey.label = "全角ａ\n☻abc記\nqwerty" // 変更したら voice.xml も更新すること
+            setupShiftedKeysOff()
+        }
+    }
 
-            var key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
-            if (key != null) {
-                key.label =
-                        if (mService.kanaState === SKKHiraganaState) "10\n：カナ>\n声"
-                        else "10\n：かな>\n声"
-            }
+    private fun setupShiftedKeysOn() {
+        mKutoutenKey.codes[0] = KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED
+        mKutoutenKey.label = "「\n（□）\n」"
+        mSpaceKey.label = "設定"
+        mQwertyKey.label = "全角ａ\n☻略記\nqwerty"
+        updateMojiKeyLabelOnShifted()
+        updateArrowKeysOnShifted()
+    }
 
-            // ＜＞を復元
-            key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_PASTE)
-            if (key != null) {
-                key.codes[0] = KEYCODE_FLICK_JP_LEFT
-                key.label = ""
-            }
-            key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_GOOGLE)
-            if (key != null) {
-                key.codes[0] = KEYCODE_FLICK_JP_RIGHT
-                key.label = ""
-            }
+    private fun setupShiftedKeysOff() {
+        mKutoutenKey.codes[0] = KEYCODE_FLICK_JP_CHAR_TEN
+        mKutoutenKey.label = mKutoutenLabel
+        mSpaceKey.label = ""
+        mQwertyKey.label = "全角ａ\n☻abc記\nqwerty"
+        updateMojiKeyLabelOnNormal()
+        restoreArrowKeys()
+    }
+
+    private fun updateMojiKeyLabelOnShifted() {
+        val key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
+        key?.label =
+                if (mService.kanaState === SKKHanKanaState) "10\n：カナ>\n声" else "10\n：ｶﾅ>\n声"
+    }
+
+    private fun updateMojiKeyLabelOnNormal() {
+        val key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
+        key?.label =
+                if (mService.kanaState === SKKHiraganaState) "10\n：カナ>\n声"
+                else "10\n：かな>\n声"
+    }
+
+    private fun updateArrowKeysOnShifted() {
+        val key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_LEFT)
+        key?.let {
+            it.codes[0] = KEYCODE_FLICK_JP_PASTE
+            it.label = "貼付"
+        }
+        val keyRight = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_RIGHT)
+        keyRight?.let {
+            it.codes[0] = KEYCODE_FLICK_JP_GOOGLE
+            it.label = "Google"
+        }
+    }
+
+    private fun restoreArrowKeys() {
+        val keyLeft = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_PASTE)
+        keyLeft?.let {
+            it.codes[0] = KEYCODE_FLICK_JP_LEFT
+            it.label = ""
+        }
+        val keyRight = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_GOOGLE)
+        keyRight?.let {
+            it.codes[0] = KEYCODE_FLICK_JP_RIGHT
+            it.label = ""
         }
     }
 
@@ -340,107 +354,118 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             it.text = ""
             it.setBackgroundResource(R.drawable.popup_label)
         }
-        val activeLabel =
-                when {
-                    mFlickState.contains(FlickState.NONE) -> {
-                        labels[0].text = mCurrentPopupLabels[0]
-                        if (!isCurve(mFlickState)) {
-                            labels[1].text = mCurrentPopupLabels[1]
-                            labels[2].text = mCurrentPopupLabels[2]
-                            labels[3].text = mCurrentPopupLabels[3]
-                            labels[4].text = mCurrentPopupLabels[4]
-                        }
-                        labels[5].text = mCurrentPopupLabels[5]
-                        labels[6].text = mCurrentPopupLabels[6]
-                        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_WA) {
-                            // 例外：小さい「ゎ」
-                            labels[5].text = "小"
-                        }
-                        when {
-                            isLeftCurve(mFlickState) -> 5
-                            isRightCurve(mFlickState) -> 6
-                            else -> 0
-                        }
-                    }
-                    mFlickState.contains(FlickState.LEFT) -> {
-                        if (!isCurve(mFlickState)) {
-                            labels[0].text = mCurrentPopupLabels[0]
-                        }
-                        labels[1].text = mCurrentPopupLabels[1]
-                        labels[7].text = mCurrentPopupLabels[5]
-                        labels[8].text = mCurrentPopupLabels[6]
-                        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_YA) {
-                            // 例外：括弧
-                            labels[7].text = "「"
-                            labels[8].text = "『"
-                        }
-                        when {
-                            isLeftCurve(mFlickState) -> 7
-                            isRightCurve(mFlickState) -> 8
-                            else -> 1
-                        }
-                    }
-                    mFlickState.contains(FlickState.UP) -> {
-                        if (!isCurve(mFlickState)) {
-                            labels[0].text = mCurrentPopupLabels[0]
-                        }
-                        labels[2].text = mCurrentPopupLabels[2]
-                        labels[9].text = mCurrentPopupLabels[5]
-                        labels[10].text = mCurrentPopupLabels[6]
-                        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_TA) {
-                            // 例外：小さい「っ」
-                            labels[9].text = "小"
-                        }
-                        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_A && !mService.isHiragana) {
-                            // 例外：「ヴ」
-                            labels[10].text = "゛"
-                        }
-                        when {
-                            isLeftCurve(mFlickState) -> 9
-                            isRightCurve(mFlickState) -> 10
-                            else -> 2
-                        }
-                    }
-                    mFlickState.contains(FlickState.RIGHT) -> {
-                        if (!isCurve(mFlickState)) {
-                            labels[0].text = mCurrentPopupLabels[0]
-                        }
-                        labels[3].text = mCurrentPopupLabels[3]
-                        labels[11].text = mCurrentPopupLabels[5]
-                        labels[12].text = mCurrentPopupLabels[6]
-                        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_YA) {
-                            // 例外：括弧
-                            labels[11].text = "」"
-                            labels[12].text = "』"
-                        }
-                        when {
-                            isLeftCurve(mFlickState) -> 11
-                            isRightCurve(mFlickState) -> 12
-                            else -> 3
-                        }
-                    }
-                    mFlickState.contains(FlickState.DOWN) -> {
-                        if (!isCurve(mFlickState)) {
-                            labels[0].text = mCurrentPopupLabels[0]
-                        }
-                        labels[4].text = mCurrentPopupLabels[4]
-                        labels[13].text = mCurrentPopupLabels[5]
-                        labels[14].text = mCurrentPopupLabels[6]
-                        when {
-                            isLeftCurve(mFlickState) -> 13
-                            isRightCurve(mFlickState) -> 14
-                            else -> 4
-                        }
-                    }
-                    else -> -1
-                }
-        labels[activeLabel].setBackgroundResource(R.drawable.popup_label_highlighted)
+
+        val activeLabel = when {
+            mFlickState.contains(FlickState.NONE) -> setupPopupForNoneState(labels)
+            mFlickState.contains(FlickState.LEFT) -> setupPopupForLeftState(labels)
+            mFlickState.contains(FlickState.UP) -> setupPopupForUpState(labels)
+            mFlickState.contains(FlickState.RIGHT) -> setupPopupForRightState(labels)
+            mFlickState.contains(FlickState.DOWN) -> setupPopupForDownState(labels)
+            else -> -1
+        }
+
+        if (activeLabel >= 0) {
+            labels[activeLabel].setBackgroundResource(R.drawable.popup_label_highlighted)
+        }
+        setupLabelSizes(labels)
+    }
+
+    private fun setupPopupForNoneState(labels: Array<TextView>): Int {
+        labels[0].text = mCurrentPopupLabels[0]
+        if (!isCurve(mFlickState)) {
+            labels[1].text = mCurrentPopupLabels[1]
+            labels[2].text = mCurrentPopupLabels[2]
+            labels[3].text = mCurrentPopupLabels[3]
+            labels[4].text = mCurrentPopupLabels[4]
+        }
+        labels[5].text = mCurrentPopupLabels[5]
+        labels[6].text = mCurrentPopupLabels[6]
+        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_WA) {
+            labels[5].text = "小"
+        }
+        return when {
+            isLeftCurve(mFlickState) -> 5
+            isRightCurve(mFlickState) -> 6
+            else -> 0
+        }
+    }
+
+    private fun setupPopupForLeftState(labels: Array<TextView>): Int {
+        if (!isCurve(mFlickState)) {
+            labels[0].text = mCurrentPopupLabels[0]
+        }
+        labels[1].text = mCurrentPopupLabels[1]
+        labels[7].text = mCurrentPopupLabels[5]
+        labels[8].text = mCurrentPopupLabels[6]
+        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_YA) {
+            labels[7].text = "「"
+            labels[8].text = "『"
+        }
+        return when {
+            isLeftCurve(mFlickState) -> 7
+            isRightCurve(mFlickState) -> 8
+            else -> 1
+        }
+    }
+
+    private fun setupPopupForUpState(labels: Array<TextView>): Int {
+        if (!isCurve(mFlickState)) {
+            labels[0].text = mCurrentPopupLabels[0]
+        }
+        labels[2].text = mCurrentPopupLabels[2]
+        labels[9].text = mCurrentPopupLabels[5]
+        labels[10].text = mCurrentPopupLabels[6]
+        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_TA) {
+            labels[9].text = "小"
+        }
+        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_A && !mService.isHiragana) {
+            labels[10].text = "゛"
+        }
+        return when {
+            isLeftCurve(mFlickState) -> 9
+            isRightCurve(mFlickState) -> 10
+            else -> 2
+        }
+    }
+
+    private fun setupPopupForRightState(labels: Array<TextView>): Int {
+        if (!isCurve(mFlickState)) {
+            labels[0].text = mCurrentPopupLabels[0]
+        }
+        labels[3].text = mCurrentPopupLabels[3]
+        labels[11].text = mCurrentPopupLabels[5]
+        labels[12].text = mCurrentPopupLabels[6]
+        if (mLastPressedKey == KEYCODE_FLICK_JP_CHAR_YA) {
+            labels[11].text = "」"
+            labels[12].text = "』"
+        }
+        return when {
+            isLeftCurve(mFlickState) -> 11
+            isRightCurve(mFlickState) -> 12
+            else -> 3
+        }
+    }
+
+    private fun setupPopupForDownState(labels: Array<TextView>): Int {
+        if (!isCurve(mFlickState)) {
+            labels[0].text = mCurrentPopupLabels[0]
+        }
+        labels[4].text = mCurrentPopupLabels[4]
+        labels[13].text = mCurrentPopupLabels[5]
+        labels[14].text = mCurrentPopupLabels[6]
+        return when {
+            isLeftCurve(mFlickState) -> 13
+            isRightCurve(mFlickState) -> 14
+            else -> 4
+        }
+    }
+
+    private fun setupLabelSizes(labels: Array<TextView>) {
         for (i in 5..14) {
-            val size =
-                    when (labels[i].text) {
-                        "゜", "゛" -> 25f // 余白部分をはみ出させて見やすくする
-                        else -> 12f // "小", "「", "」", "『", "』"
-                    }
+            val size = when (labels[i].text) {
+                "゜", "゛" -> 25f
+                else -> 12f
+            }
             labels[i].setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size)
         }
     }
@@ -453,6 +478,307 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
 
     private fun isCurve(flick: EnumSet<FlickState>): Boolean =
             curveDetector.isCurve(flick)
+
+    /**
+     * Aキーのフリック入力を処理する
+     *
+     * - LEFTカーブ: x+a（小文字）+ Enter（選択状態なら）
+     * - UP+rightCurve（非ひらがな時）: ヴ（ve）
+     * - シフト時: 大文字母音
+     * - 通常: 小文字母音
+     */
+    private fun processAKey(flick: EnumSet<FlickState>) {
+        if (isLeftCurve(flick)) {
+            if (mService.engineState === SKKChooseState) {
+                mService.handleEnter()
+            }
+            mService.processKey('x'.code)
+            mService.processKey(flickProcessor.getVowelForFlick(flick))
+        } else if (!mService.isHiragana &&
+                flick == EnumSet.of(FlickState.UP, FlickState.CURVE_RIGHT)
+        ) {
+            mService.processKey('v'.code)
+            mService.processKey('u'.code)
+        } else if (isShifted) {
+            mService.processKey(Character.toUpperCase(flickProcessor.getVowelForFlick(flick).toChar()).code)
+        } else {
+            mService.processKey(flickProcessor.getVowelForFlick(flick))
+        }
+    }
+
+    /**
+     * カ行キーのフリック入力を処理する
+     *
+     * - 通常: か行（シフトで大文字）
+     * - RIGHT: が行
+     * - LEFT+rightCurve: 特殊ケース（TAの場合のみ小さい「っ」）
+     */
+    private fun processKAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        val consonant = if (isRightCurve(flick)) 'g'.code else 'k'.code
+        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+        else mService.processKey(consonant)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * タ行キーのフリック入力を処理する
+     *
+     * - 通常: た行（シフトで大文字）
+     * - RIGHT: だ行
+     * - LEFT+rightCurve: 小さい「っ」（特殊処理）
+     */
+    private fun processTAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        val consonant = if (isRightCurve(flick)) 'd'.code else 't'.code
+        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+        else mService.processKey(consonant)
+
+        // 小さい「っ」: LEFTカーブ + RIGHTカーブ（tキーのみ）
+        if (isLeftCurve(flick) && consonant == 't'.code) {
+            mService.processKey(flickProcessor.getVowelForFlick(flick))
+            mService.resumeSuggestions()
+            mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+        } else {
+            mService.resumeSuggestions()
+            mService.processKey(flickProcessor.getVowelForFlick(flick))
+        }
+    }
+
+    /**
+     * ナ行キーのフリック入力を処理する
+     *
+     * - 通常: な行（シフトで大文字）
+     */
+    private fun processNAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        if (isShifted) mService.processKey(Character.toUpperCase('n'.toChar()).code)
+        else mService.processKey('n'.code)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * ハ行キーのフリック入力を処理する
+     *
+     * - 通常: は行（シフトで大文字）
+     * - RIGHT: ば行
+     * - LEFT: ぱ行
+     */
+    private fun processHAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        val consonant = when {
+            isRightCurve(flick) -> 'b'.code
+            isLeftCurve(flick) -> 'p'.code
+            else -> 'h'.code
+        }
+        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+        else mService.processKey(consonant)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * マ行キーのフリック入力を処理する
+     *
+     * - 通常: ま行（シフトで大文字）
+     */
+    private fun processMAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        if (isShifted) mService.processKey(Character.toUpperCase('m'.toChar()).code)
+        else mService.processKey('m'.code)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * ラ行キーのフリック入力を処理する
+     *
+     * - 通常: ら行（シフトで大文字）
+     */
+    private fun processRAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        if (isShifted) mService.processKey(Character.toUpperCase('r'.toChar()).code)
+        else mService.processKey('r'.code)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * サ行キーのフリック入力を処理する
+     *
+     * - 通常: さ行（シフトで大文字）
+     * - RIGHT: ざ行
+     */
+    private fun processSAKey(flick: EnumSet<FlickState>) {
+        mService.suspendSuggestions()
+        val consonant = if (isRightCurve(flick)) 'z'.code else 's'.code
+        if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
+        else mService.processKey(consonant)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * YAキーのフリック入力を処理する
+     *
+     * - LEFT/RIGHTフリック: 括弧記号入力（カーブ有無で違いの括弧）
+     * - 通常: や行の文字入力（シフト対応）
+     */
+    private fun processYAKey(flick: EnumSet<FlickState>) {
+        val symbol = when {
+            flick.contains(FlickState.LEFT) -> {
+                when {
+                    isCurve(flick) -> '['
+                    else -> '('
+                }
+            }
+            flick.contains(FlickState.RIGHT) -> {
+                when {
+                    isCurve(flick) -> ']'
+                    else -> ')'
+                }
+            }
+            else -> null
+        }
+
+        if (symbol != null) {
+            if (isRightCurve(flick)) mService.processKey('z'.code)
+            mService.processKey(symbol.code)
+            return
+        }
+
+        mService.suspendSuggestions()
+        mService.processKey('y'.code)
+        mService.resumeSuggestions()
+        mService.processKey(flickProcessor.getVowelForFlick(flick))
+    }
+
+    /**
+     * WAキーのフリック入力を処理する
+     *
+     * - NONE: わ/を（シフトで大文字）
+     * - NONE+CURVE_LEFT: xwa（小わ）
+     * - LEFT: わお（を）
+     * - UP: Nn（ん）
+     * - RIGHT: ー（長音）
+     * - DOWN: ～（チルダ）
+     */
+    private fun processWAKey(flick: EnumSet<FlickState>) {
+        when (flick) {
+            EnumSet.of(FlickState.NONE) -> {
+                mService.processKey(if (isShifted) 'W'.code else 'w'.code)
+                mService.processKey('a'.code)
+            }
+            EnumSet.of(FlickState.NONE, FlickState.CURVE_LEFT) -> {
+                mService.processKey(if (isShifted) 'X'.code else 'x'.code)
+                mService.processKey('w'.code)
+                mService.processKey('a'.code)
+            }
+            EnumSet.of(FlickState.LEFT) -> {
+                mService.processKey('w'.code)
+                mService.processKey('o'.code)
+            }
+            EnumSet.of(FlickState.UP) -> {
+                mService.processKey(if (isShifted) 'N'.code else 'n'.code)
+                mService.processKey('n'.code)
+            }
+            EnumSet.of(FlickState.RIGHT) -> mService.processKey('-'.code)
+            EnumSet.of(FlickState.DOWN) -> mService.processKey('~'.code)
+        }
+    }
+
+    /**
+     * 句読点キーのフリック入力を処理する
+     *
+     * - NONE: 、
+     * - LEFT: 。
+     * - UP: ？
+     * - RIGHT: ！
+     * - DOWN: z。（全角句点）
+     */
+    private fun processTenKey(flick: EnumSet<FlickState>) {
+        val keyMap = mapOf(
+            EnumSet.of(FlickState.NONE) to '、'.code,
+            EnumSet.of(FlickState.LEFT) to '。'.code,
+            EnumSet.of(FlickState.UP) to '？'.code,
+            EnumSet.of(FlickState.RIGHT) to '！'.code,
+        )
+        when {
+            flick in keyMap -> mService.processKey(keyMap[flick]!!)
+            flick == EnumSet.of(FlickState.DOWN) -> {
+                mService.processKey('z'.code)
+                mService.processKey('。'.code)
+            }
+        }
+    }
+
+    /**
+     * 全角句読点キーのフリック入力を処理する
+     *
+     * - NONE: （全角スペース）
+     * - LEFT: （
+     * - UP: 「
+     * - RIGHT: ）
+     * - DOWN: 」
+     */
+    private fun processTenShiftedKey(flick: EnumSet<FlickState>) {
+        val keyMap = mapOf(
+            EnumSet.of(FlickState.NONE) to ' '.code,
+            EnumSet.of(FlickState.LEFT) to '（'.code,
+            EnumSet.of(FlickState.UP) to '「'.code,
+            EnumSet.of(FlickState.RIGHT) to '）'.code,
+            EnumSet.of(FlickState.DOWN) to '」'.code,
+        )
+        keyMap[flick]?.let { key ->
+            if (flick == EnumSet.of(FlickState.NONE)) {
+                mService.processKeyIn(SKKZenkakuState, key)
+            } else {
+                mService.processKey(key)
+            }
+        }
+    }
+
+    /**
+     * 記号数字キー（右上）のフリック入力を処理する
+     *
+     * - NONE: ，
+     * - LEFT: ．
+     * - UP: －
+     * - RIGHT: ：
+     * - DOWN: ／
+     */
+    private fun processTenNumKey(flick: EnumSet<FlickState>) {
+        val keyMap = mapOf(
+            EnumSet.of(FlickState.NONE) to "，",
+            EnumSet.of(FlickState.LEFT) to "．",
+            EnumSet.of(FlickState.UP) to "－",
+            EnumSet.of(FlickState.RIGHT) to "：",
+            EnumSet.of(FlickState.DOWN) to "／",
+        )
+        keyMap[flick]?.let { mService.commitTextSKK(it) }
+    }
+
+    /**
+     * 記号数字キーLEFT（左下）のフリック入力を処理する
+     *
+     * - NONE: ＃
+     * - LEFT: ￥
+     * - UP: ＋
+     * - RIGHT: ＄
+     * - DOWN: ＊
+     */
+    private fun processTenNumLeftKey(flick: EnumSet<FlickState>) {
+        val keyMap = mapOf(
+            EnumSet.of(FlickState.NONE) to "＃",
+            EnumSet.of(FlickState.LEFT) to "￥",
+            EnumSet.of(FlickState.UP) to "＋",
+            EnumSet.of(FlickState.RIGHT) to "＄",
+            EnumSet.of(FlickState.DOWN) to "＊",
+        )
+        keyMap[flick]?.let { mService.commitTextSKK(it) }
+    }
 
     override fun onModifiedTouchEvent(me: MotionEvent, possiblePoly: Boolean): Boolean {
         when (me.action) {
@@ -630,196 +956,21 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         val vowel = flickProcessor.getVowelForFlick(flick)
 
         when (keyCode) {
-            KEYCODE_FLICK_JP_CHAR_A -> {
-                // Aキー特別処理
-                if (isLeftCurve(flick)) {
-                    if (mService.engineState === SKKChooseState) {
-                        mService.handleEnter()
-                    }
-                    mService.processKey('x'.code)
-                    mService.processKey(vowel)
-                } else if (!mService.isHiragana &&
-                        flick == EnumSet.of(FlickState.UP, FlickState.CURVE_RIGHT)
-                ) {
-                    mService.processKey('v'.code)
-                    mService.processKey('u'.code)
-                } else if (isShifted) {
-                    mService.processKey(Character.toUpperCase(vowel.toChar()).code)
-                } else {
-                    mService.processKey(vowel)
-                }
-            }
+            KEYCODE_FLICK_JP_CHAR_A -> processAKey(flick)
 
-            KEYCODE_FLICK_JP_CHAR_KA -> {
-                mService.suspendSuggestions()
-                val consonant = if (isRightCurve(flick)) 'g'.code else 'k'.code
-                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-                else mService.processKey(consonant)
-                if (isLeftCurve(flick) && consonant == 't'.code) {
-                    mService.processKey(vowel)
-                    mService.resumeSuggestions()
-                    mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
-                } else {
-                    mService.resumeSuggestions()
-                    mService.processKey(vowel)
-                }
-            }
-            KEYCODE_FLICK_JP_CHAR_SA -> {
-                mService.suspendSuggestions()
-                val consonant = if (isRightCurve(flick)) 'z'.code else 's'.code
-                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-                else mService.processKey(consonant)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_TA -> {
-                mService.suspendSuggestions()
-                val consonant = if (isRightCurve(flick)) 'd'.code else 't'.code
-                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-                else mService.processKey(consonant)
-                if (isLeftCurve(flick) && consonant == 't'.code) {
-                    mService.processKey(vowel)
-                    mService.resumeSuggestions()
-                    mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
-                } else {
-                    mService.resumeSuggestions()
-                    mService.processKey(vowel)
-                }
-            }
-            KEYCODE_FLICK_JP_CHAR_NA -> {
-                mService.suspendSuggestions()
-                if (isShifted) mService.processKey(Character.toUpperCase('n'.toChar()).code)
-                else mService.processKey('n'.code)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_HA -> {
-                mService.suspendSuggestions()
-                val consonant = when {
-                    isRightCurve(flick) -> 'b'.code
-                    isLeftCurve(flick) -> 'p'.code
-                    else -> 'h'.code
-                }
-                if (isShifted) mService.processKey(Character.toUpperCase(consonant.toChar()).code)
-                else mService.processKey(consonant)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_MA -> {
-                mService.suspendSuggestions()
-                if (isShifted) mService.processKey(Character.toUpperCase('m'.toChar()).code)
-                else mService.processKey('m'.code)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_YA -> {
-                val symbol = when {
-                    flick.contains(FlickState.LEFT) -> {
-                        when {
-                            isCurve(flick) -> '['
-                            else -> '('
-                        }
-                    }
-                    flick.contains(FlickState.RIGHT) -> {
-                        when {
-                            isCurve(flick) -> ']'
-                            else -> ')'
-                        }
-                    }
-                    else -> null
-                }
-                if (symbol != null) {
-                    if (isRightCurve(flick)) mService.processKey('z'.code)
-                    mService.processKey(symbol.code)
-                    return
-                }
-                mService.suspendSuggestions()
-                if (isShifted) mService.processKey('y'.code)
-                else mService.processKey('y'.code)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_RA -> {
-                mService.suspendSuggestions()
-                if (isShifted) mService.processKey(Character.toUpperCase('r'.toChar()).code)
-                else mService.processKey('r'.code)
-                mService.resumeSuggestions()
-                mService.processKey(vowel)
-            }
-            KEYCODE_FLICK_JP_CHAR_WA -> {
-                when (flick) {
-                    EnumSet.of(FlickState.NONE) -> {
-                        mService.processKey(if (isShifted) 'W'.code else 'w'.code)
-                        mService.processKey('a'.code)
-                    }
-                    EnumSet.of(FlickState.NONE, FlickState.CURVE_LEFT) -> {
-                        mService.processKey(if (isShifted) 'X'.code else 'x'.code)
-                        mService.processKey('w'.code)
-                        mService.processKey('a'.code)
-                    }
-                    EnumSet.of(FlickState.LEFT) -> {
-                        mService.processKey('w'.code)
-                        mService.processKey('o'.code)
-                    }
-                    EnumSet.of(FlickState.UP) -> {
-                        mService.processKey(if (isShifted) 'N'.code else 'n'.code)
-                        mService.processKey('n'.code)
-                    }
-                    EnumSet.of(FlickState.RIGHT) -> mService.processKey('-'.code)
-                    EnumSet.of(FlickState.DOWN) -> mService.processKey('~'.code)
-                }
-            }
-            KEYCODE_FLICK_JP_CHAR_TEN -> {
-                val keyMap = mapOf(
-                    EnumSet.of(FlickState.NONE) to '、'.code,
-                    EnumSet.of(FlickState.LEFT) to '。'.code,
-                    EnumSet.of(FlickState.UP) to '？'.code,
-                    EnumSet.of(FlickState.RIGHT) to '！'.code,
-                )
-                when {
-                    flick in keyMap -> mService.processKey(keyMap[flick]!!)
-                    flick == EnumSet.of(FlickState.DOWN) -> {
-                        mService.processKey('z'.code)
-                        mService.processKey('。'.code)
-                    }
-                }
-            }
-            KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED -> {
-                val keyMap = mapOf(
-                    EnumSet.of(FlickState.NONE) to ' '.code,
-                    EnumSet.of(FlickState.LEFT) to '（'.code,
-                    EnumSet.of(FlickState.UP) to '「'.code,
-                    EnumSet.of(FlickState.RIGHT) to '）'.code,
-                    EnumSet.of(FlickState.DOWN) to '」'.code,
-                )
-                keyMap[flick]?.let { key ->
-                    if (flick == EnumSet.of(FlickState.NONE)) {
-                        mService.processKeyIn(SKKZenkakuState, key)
-                    } else {
-                        mService.processKey(key)
-                    }
-                }
-            }
-            KEYCODE_FLICK_JP_CHAR_TEN_NUM -> {
-                val keyMap = mapOf(
-                    EnumSet.of(FlickState.NONE) to "，",
-                    EnumSet.of(FlickState.LEFT) to "．",
-                    EnumSet.of(FlickState.UP) to "－",
-                    EnumSet.of(FlickState.RIGHT) to "：",
-                    EnumSet.of(FlickState.DOWN) to "／",
-                )
-                keyMap[flick]?.let { mService.commitTextSKK(it) }
-            }
-            KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT -> {
-                val keyMap = mapOf(
-                    EnumSet.of(FlickState.NONE) to "＃",
-                    EnumSet.of(FlickState.LEFT) to "￥",
-                    EnumSet.of(FlickState.UP) to "＋",
-                    EnumSet.of(FlickState.RIGHT) to "＄",
-                    EnumSet.of(FlickState.DOWN) to "＊",
-                )
-                keyMap[flick]?.let { mService.commitTextSKK(it) }
-            }
+            KEYCODE_FLICK_JP_CHAR_KA -> processKAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_SA -> processSAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_TA -> processTAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_NA -> processNAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_HA -> processHAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_MA -> processMAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_YA -> processYAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_RA -> processRAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_WA -> processWAKey(flick)
+            KEYCODE_FLICK_JP_CHAR_TEN -> processTenKey(flick)
+            KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED -> processTenShiftedKey(flick)
+            KEYCODE_FLICK_JP_CHAR_TEN_NUM -> processTenNumKey(flick)
+            KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT -> processTenNumLeftKey(flick)
             else -> return
         }
     }
@@ -938,91 +1089,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
 
     private fun release() {
         when (mLastPressedKey) {
-            // repeatable のフリック
-            KEYCODE_FLICK_JP_SPACE -> {
-                val mushroomAction = mushroomKeyProcessor.processMushroomKey(mFlickState)
-                if (mushroomAction == MushroomKeyProcessor.MushroomAction.SEND_MUSHROOM) {
-                    mService.sendToMushroom()
-                }
-            }
-            // repeatable 以外
-            Keyboard.KEYCODE_SHIFT -> {
-                isShifted = shiftToggleProcessor.toggleShift(isShifted)
-                onSetShifted()
-            }
-            KEYCODE_FLICK_JP_ENTER -> {
-                val enterAction = enterKeyProcessor.processEnterKey(mService.handleEnter())
-                if (enterAction == EnterKeyProcessor.EnterAction.PRESS_ENTER) {
-                    mService.pressEnter()
-                }
-            }
-            KEYCODE_FLICK_JP_KOMOJI -> {
-                val komojiAction = komojiKeyProcessor.processKomojiKey(
-                    mFlickState, skkPrefs.useSoftCancelKey, skkPrefs.useSoftTransKey
-                )
-                when (komojiAction) {
-                    KomojiKeyProcessor.KomojiAction.SMALL ->
-                        mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
-                    KomojiKeyProcessor.KomojiAction.TRANS ->
-                        mService.changeLastChar(SKKEngine.LAST_CONVERSION_TRANS)
-                    KomojiKeyProcessor.KomojiAction.DAKUTEN ->
-                        mService.changeLastChar(SKKEngine.LAST_CONVERSION_DAKUTEN)
-                    KomojiKeyProcessor.KomojiAction.CANCEL ->
-                        mService.handleCancel()
-                    KomojiKeyProcessor.KomojiAction.HANDAKUTEN ->
-                        mService.changeLastChar(SKKEngine.LAST_CONVERSION_HANDAKUTEN)
-                    KomojiKeyProcessor.KomojiAction.SHIFT ->
-                        mService.changeLastChar(SKKEngine.LAST_CONVERSION_SHIFT)
-                    KomojiKeyProcessor.KomojiAction.UNKNOWN -> {}
-                }
-            }
-            KEYCODE_FLICK_JP_MOJI -> {
-                val mojiAction = mojiKeyProcessor.processMojiKey(mFlickState, isShifted)
-                when (mojiAction) {
-                    MojiKeyProcessor.MojiAction.Q ->
-                        mService.processKey('q'.code)
-                    MojiKeyProcessor.MojiAction.SHIFTED_Q ->
-                        mService.processKey(17)
-                    MojiKeyProcessor.MojiAction.COLON ->
-                        mService.processKey(':'.code)
-                    MojiKeyProcessor.MojiAction.NUMBOARD ->
-                        if (keyboard !== mNumKeyboard) {
-                            keyboard = mNumKeyboard
-                            isHankaku = false
-                        }
-                    MojiKeyProcessor.MojiAction.GREATER ->
-                        mService.processKey('>'.code)
-                    MojiKeyProcessor.MojiAction.VOICEBOARD ->
-                        if (keyboard !== mVoiceKeyboard) {
-                            keyboard = mVoiceKeyboard
-                            isHankaku = false
-                        }
-                }
-            }
-            KEYCODE_FLICK_JP_TO_KANA -> {
-                val kanaAction = toKanaKeyProcessor.processToKanaKey(keyboard !== mJPKeyboard)
-                if (kanaAction == ToKanaKeyProcessor.ToKanaAction.SWITCH_TO_JP) {
-                    keyboard = mJPKeyboard
-                    isHankaku = toKanaKeyProcessor.calculateHankakuState(mService.kanaState)
-                    if (skkPrefs.preferGodan) mService.changeSoftKeyboard(SKKHiraganaState)
-                }
-            }
-            KEYCODE_FLICK_JP_TO_QWERTY -> {
-                val qwertyAction = toQwertyKeyProcessor.processToQwertyKey(mFlickState)
-                when (qwertyAction) {
-                    ToQwertyKeyProcessor.ToQwertyAction.EMOJI -> mService.showEmojiPicker()
-                    ToQwertyKeyProcessor.ToQwertyAction.ZENKAKU -> {
-                        mService.mEngine.changeState(SKKZenkakuState)
-                        mService.changeSoftKeyboard(SKKZenkakuState)
-                    }
-                    ToQwertyKeyProcessor.ToQwertyAction.SYMBOL -> mService.symbolCandidates(isShifted)
-                    ToQwertyKeyProcessor.ToQwertyAction.ASCII -> {
-                        mService.mEngine.changeState(SKKASCIIState)
-                        mService.changeSoftKeyboard(SKKASCIIState)
-                    }
-                    ToQwertyKeyProcessor.ToQwertyAction.UNKNOWN -> {}
-                }
-            }
+            KEYCODE_FLICK_JP_SPACE -> releaseSpaceKey()
+            Keyboard.KEYCODE_SHIFT -> releaseShiftKey()
+            KEYCODE_FLICK_JP_ENTER -> releaseEnterKey()
+            KEYCODE_FLICK_JP_KOMOJI -> releaseKomojiKey()
+            KEYCODE_FLICK_JP_MOJI -> releaseMojiKey()
+            KEYCODE_FLICK_JP_TO_KANA -> releaseToKanaKey()
+            KEYCODE_FLICK_JP_TO_QWERTY -> releaseToQwertyKey()
             KEYCODE_FLICK_JP_SPEECH -> mService.recognizeSpeech()
             KEYCODE_FLICK_JP_PASTE -> mService.pasteClip()
             KEYCODE_FLICK_JP_GOOGLE -> mService.googleTransliterate()
@@ -1039,10 +1112,103 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             KEYCODE_FLICK_JP_CHAR_TEN,
             KEYCODE_FLICK_JP_CHAR_TEN_SHIFTED,
             KEYCODE_FLICK_JP_CHAR_TEN_NUM,
-            KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT ->
-                    processFlickForLetter(mLastPressedKey, mFlickState)
+            KEYCODE_FLICK_JP_CHAR_TEN_NUM_LEFT -> processFlickForLetter(mLastPressedKey, mFlickState)
         }
 
+        cleanupState()
+    }
+
+    private fun releaseSpaceKey() {
+        val mushroomAction = mushroomKeyProcessor.processMushroomKey(mFlickState)
+        if (mushroomAction == MushroomKeyProcessor.MushroomAction.SEND_MUSHROOM) {
+            mService.sendToMushroom()
+        }
+    }
+
+    private fun releaseShiftKey() {
+        isShifted = shiftToggleProcessor.toggleShift(isShifted)
+        onSetShifted()
+    }
+
+    private fun releaseEnterKey() {
+        val enterAction = enterKeyProcessor.processEnterKey(mService.handleEnter())
+        if (enterAction == EnterKeyProcessor.EnterAction.PRESS_ENTER) {
+            mService.pressEnter()
+        }
+    }
+
+    private fun releaseKomojiKey() {
+        val komojiAction = komojiKeyProcessor.processKomojiKey(
+            mFlickState, skkPrefs.useSoftCancelKey, skkPrefs.useSoftTransKey
+        )
+        when (komojiAction) {
+            KomojiKeyProcessor.KomojiAction.SMALL ->
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_SMALL)
+            KomojiKeyProcessor.KomojiAction.TRANS ->
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_TRANS)
+            KomojiKeyProcessor.KomojiAction.DAKUTEN ->
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_DAKUTEN)
+            KomojiKeyProcessor.KomojiAction.CANCEL ->
+                mService.handleCancel()
+            KomojiKeyProcessor.KomojiAction.HANDAKUTEN ->
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_HANDAKUTEN)
+            KomojiKeyProcessor.KomojiAction.SHIFT ->
+                mService.changeLastChar(SKKEngine.LAST_CONVERSION_SHIFT)
+            KomojiKeyProcessor.KomojiAction.UNKNOWN -> {}
+        }
+    }
+
+    private fun releaseMojiKey() {
+        val mojiAction = mojiKeyProcessor.processMojiKey(mFlickState, isShifted)
+        when (mojiAction) {
+            MojiKeyProcessor.MojiAction.Q ->
+                mService.processKey('q'.code)
+            MojiKeyProcessor.MojiAction.SHIFTED_Q ->
+                mService.processKey(17)
+            MojiKeyProcessor.MojiAction.COLON ->
+                mService.processKey(':'.code)
+            MojiKeyProcessor.MojiAction.NUMBOARD ->
+                if (keyboard !== mNumKeyboard) {
+                    keyboard = mNumKeyboard
+                    isHankaku = false
+                }
+            MojiKeyProcessor.MojiAction.GREATER ->
+                mService.processKey('>'.code)
+            MojiKeyProcessor.MojiAction.VOICEBOARD ->
+                if (keyboard !== mVoiceKeyboard) {
+                    keyboard = mVoiceKeyboard
+                    isHankaku = false
+                }
+        }
+    }
+
+    private fun releaseToKanaKey() {
+        val kanaAction = toKanaKeyProcessor.processToKanaKey(keyboard !== mJPKeyboard)
+        if (kanaAction == ToKanaKeyProcessor.ToKanaAction.SWITCH_TO_JP) {
+            keyboard = mJPKeyboard
+            isHankaku = toKanaKeyProcessor.calculateHankakuState(mService.kanaState)
+            if (skkPrefs.preferGodan) mService.changeSoftKeyboard(SKKHiraganaState)
+        }
+    }
+
+    private fun releaseToQwertyKey() {
+        val qwertyAction = toQwertyKeyProcessor.processToQwertyKey(mFlickState)
+        when (qwertyAction) {
+            ToQwertyKeyProcessor.ToQwertyAction.EMOJI -> mService.showEmojiPicker()
+            ToQwertyKeyProcessor.ToQwertyAction.ZENKAKU -> {
+                mService.mEngine.changeState(SKKZenkakuState)
+                mService.changeSoftKeyboard(SKKZenkakuState)
+            }
+            ToQwertyKeyProcessor.ToQwertyAction.SYMBOL -> mService.symbolCandidates(isShifted)
+            ToQwertyKeyProcessor.ToQwertyAction.ASCII -> {
+                mService.mEngine.changeState(SKKASCIIState)
+                mService.changeSoftKeyboard(SKKASCIIState)
+            }
+            ToQwertyKeyProcessor.ToQwertyAction.UNKNOWN -> {}
+        }
+    }
+
+    private fun cleanupState() {
         if (mLastPressedKey != Keyboard.KEYCODE_SHIFT) {
             isShifted = false
             onSetShifted()

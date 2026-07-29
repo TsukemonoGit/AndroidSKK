@@ -29,6 +29,64 @@
 
 #### Step 3: processFlickForLetter()を簡素化
 
+---
+
+## 2026-07-29 リファクタリング第2弾（全体構造の分割）
+
+### 対象関数
+- `processFlickForLetter()`（約150行）→ 13関数に分割
+- `setupPopupTextView()`（約80行）→ 6関数に分割
+- `onSetShifted()`（約50行）→ 6関数に分割
+- `release()`（約80行）→ 10関数に分割
+
+### 分割結果
+
+#### processFlickForLetter() → 13関数
+1. `processAKey(flick)` - Aキー（左カーブ・ヴ・大文字対応）
+2. `processKAKey(flick)` - カ行キー
+3. `processSAKey(flick)` - サ行キー
+4. `processTAKey(flick)` - タ行キー（小さい「っ」特殊処理）
+5. `processNAKey(flick)` - ナ行キー
+6. `processHAKey(flick)` - ハ行キー（濁音・半濁音）
+7. `processMAKey(flick)` - マ行キー
+8. `processYAKey(flick)` - ヤ行キー（括弧記号）
+9. `processRAKey(flick)` - ラ行キー
+10. `processWAKey(flick)` - ワ行キー（複数パターン）
+11. `processTenKey(flick)` - 句読点キー
+12. `processTenShiftedKey(flick)` - 全角句読点キー
+13. `processTenNumKey(flick)` - 記号数字キー（右上）
+14. `processTenNumLeftKey(flick)` - 記号数字キー（左下）
+
+#### setupPopupTextView() → 6関数
+1. `setupPopupTextView()` - メイン（各状態関数を呼び出し）
+2. `setupPopupForNoneState(labels)` - 通常状態
+3. `setupPopupForLeftState(labels)` - 左スライド
+4. `setupPopupForUpState(labels)` - 上スライド
+5. `setupPopupForRightState(labels)` - 右スライド
+6. `setupPopupForDownState(labels)` - 下スライド
+7. `setupLabelSizes(labels)` - フォントサイズ設定
+
+#### onSetShifted() → 6関数
+1. `onSetShifted()` - メイン
+2. `setupShiftedKeysOn()` - シフトON時
+3. `setupShiftedKeysOff()` - シフトOFF時
+4. `updateMojiKeyLabelOnShifted()` - かなキーラベル（シフトON）
+5. `updateMojiKeyLabelOnNormal()` - かなキーラベル（通常）
+6. `updateArrowKeysOnShifted()` - 矢印キー変更（シフトON）
+7. `restoreArrowKeys()` - 矢印キー復元
+
+#### release() → 10関数
+1. `release()` - メイン
+2. `releaseSpaceKey()` - スペースキー
+3. `releaseShiftKey()` - シフトキー
+4. `releaseEnterKey()` - Enterキー
+5. `releaseKomojiKey()` - 句読点キー
+6. `releaseMojiKey()` - かなキー
+7. `releaseToKanaKey()` - かな切り替え
+8. `releaseToQwertyKey()` - qwerty切り替え
+9. `releaseFlickKeys()` - フリック文字キー（一括）
+10. `cleanupState()` - 状態クリーンアップ
+
 #### Step 4: テスト追加
 
 ### 進捗

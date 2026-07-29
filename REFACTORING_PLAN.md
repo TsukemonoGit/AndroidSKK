@@ -175,6 +175,69 @@ MotionEvent.ACTION_DOWN -> {
 
 ## 次のセッションでやるべきこと
 
-1. FlickJPKeyboardViewの `processFlickForLetter()` 関数のリファクタリング（150行を超える巨大関数）
-2. キー配置とpopupラベルの自動生成ロジックの見直し（`appendKeyLabels` メソッド）
-3. 既存テスト `RomajiConverterTest.testConvertLastChar` の修正
+1. ~~FlickJPKeyboardViewの `processFlickForLetter()` 関数のリファクタリング~~ ✅ 完了（13関数に分割）
+2. ~~FlickJPKeyboardViewの `setupPopupTextView()` 関数のリファクタリング~~ ✅ 完了（6関数に分割）
+3. ~~FlickJPKeyboardViewの `onSetShifted()` 関数のリファクタリング~~ ✅ 完了（6関数に分割）
+4. ~~FlickJPKeyboardViewの `release()` 関数のリファクタリング~~ ✅ 完了（10関数に分割）
+5. `suspendSuggestions()`/`resumeSuggestions()`呼び出しのパターン統一（try-finally化）
+6. キー配置とpopupラベルの自動生成ロジックの見直し
+7. 既存テスト `RomajiConverterTest.testConvertLastChar` の修正
+8. バグ再調査: Shift→YA/YU/YO入力での変換モードキャンセル
+
+---
+
+## 2026-07-29 リファクタリング計画（第2弾）
+
+### 分析：FlickJPKeyboardViewの構造問題
+
+**問題点1: `processFlickForLetter()`の巨大化（約150行）**
+- 15個のキーコードをwhen文で分岐
+- 各caseが20〜40行に及ぶ
+- `suspendSuggestions()`/`resumeSuggestions()`のパターンが重複
+- Service直接呼び出しが埋め込まれていてテスト不可能
+
+**問題点2: `setupPopupTextView()`の巨大化（約80行）**
+- フリック状態（NONE/LEFT/UP/RIGHT/DOWN）ごとのpopupラベル表示ロジック
+- 各caseで`isCurve()`判定と特殊ケース（YA/Ta/Wa）が埋め込み
+- 15個のTextView操作が直列に並ぶ
+
+**問題点3: `onSetShifted()`の巨大化（約50行）**
+- シフトON/OFFで多数のキーのlabel/codesを変更
+- 条件分岐が2分支のif-else
+- キー変更ロジックが散在
+
+**問題点4: `release()`の巨大化（約80行）**
+- 15個以上のキーコードをwhen文で分岐
+- Processor委譲が不完全（一部のみ）
+
+### リファクタリング計画
+
+#### Step 1: `processFlickForLetter()`の分割
+- `processSingleLetterKey()` - 1母音キー共通処理（Aを除く）
+- `processAKey()` - Aキー特別処理（カーブ・シフト対応）
+- `processYAKey()` - YAキー（記号入力含む）
+- `processWAKey()` - WAキー（複数パターン）
+- `processTenKey()` - 句読点キー
+- `processTenShiftedKey()` - 全角句読点キー
+- `processTenNumKey()` - 記号数字キー
+- `processTenNumLeftKey()` - 記号数字キーLEFT
+
+#### Step 2: `setupPopupTextView()`の分割
+- `setupPopupForFlickState()` - 各フリック状態ごとのラベル設定
+- `getActiveLabelIndex()` - アクティブラベルのインデックス計算
+- `highlightActiveLabel()` - 強調表示処理
+
+#### Step 3: `onSetShifted()`の分割
+- `updateTenKeyOnShift()` - 句読点キー変更
+- `updateMojiKeyOnShift()` - モジキー変更
+- `updateArrowKeysOnShift()` - 矢印キー変更
+
+#### Step 4: `release()`の完全委譲
+- 全ての分岐をProcessorに委譲
+
+### 進捗
+
+- [x] Step 1: processFlickForLetter()分割（13関数に分割）
+- [x] Step 2: setupPopupTextView()分割（6関数に分割）
+- [x] Step 3: onSetShifted()分割（6関数に分割）
+- [x] Step 4: release()完全委譲（10関数に分割）
