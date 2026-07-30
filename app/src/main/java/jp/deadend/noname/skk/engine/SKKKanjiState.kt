@@ -42,6 +42,28 @@ object SKKKanjiState : SKKConfirmingState {
             }
 
             when (codeLower) {
+                // 全角句読点: mKanjiKeyに追加して変換継続
+                '！'.code -> {
+                    mKanjiKey.append('！')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '？'.code -> {
+                    mKanjiKey.append('？')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '。'.code -> {
+                    mKanjiKey.append('。')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '、'.code -> {
+                    mKanjiKey.append('、')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+
                 'l'.code -> changeInputMode(keyCode)
 
                 '/'.code -> changeInputMode(keyCode)

@@ -1,0 +1,294 @@
+--------- beginning of main
+07-30 07:30:22.694 D/SKK     (12649): lifecycle: onCreate
+07-30 07:30:22.756 D/SKK     (12649): dict dir: /data/user/0/jp.deadend.noname.skk/files
+07-30 07:30:22.756 D/SKK     (12649): dict pref: ユーザー辞書/skk_userdict/SKK L+ 辞書/skk_dict_L+/
+07-30 07:30:22.792 D/SKK     (12649): lifecycle: onInitializeInterface
+07-30 07:30:22.792 D/SKK     (12649): lifecycle: onCreateInputView
+07-30 07:30:22.792 D/SKK     (12649): lifecycle: onCreateCandidatesView
+07-30 07:30:22.800 D/SKK     (12649): lifecycle: setCandidatesView
+07-30 07:30:22.846 D/SKK     (12649): onCreateInputView: wasFlick=false wasGodan=false engineState=jp.deadend.noname.skk.engine.SKKHiraganaState@28f228b
+07-30 07:30:22.846 D/SKK     (12649): setInputView(jp.deadend.noname.skk.FlickJPKeyboardView{5fa3f68 V.ED..... ......I. 0,0-0,0})
+07-30 07:30:22.850 D/SKK     (12649): lifecycle: onBindInput
+07-30 07:30:22.850 D/SKK     (12649): lifecycle: onStartInput
+07-30 07:30:22.851 D/SKK     (12649): lifecycle: onUpdateEditorToolType
+07-30 07:30:22.851 D/SKK     (12649): lifecycle: onEvaluateInputViewShown
+07-30 07:30:22.851 D/SKK     (12649): lifecycle: onCreateCandidatesView
+07-30 07:30:22.855 D/SKK     (12649): lifecycle: setCandidatesView
+07-30 07:30:22.857 D/SKK     (12649): lifecycle: onEvaluateInputViewShown
+07-30 07:30:22.857 D/SKK     (12649): lifecycle: onStartInputView
+07-30 07:30:25.194 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:30:25.194 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:30:26.111 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[DOWN]
+07-30 07:30:26.111 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:30:26.111 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:30:26.116 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:30:26.116 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:30:26.116 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:30:26.116 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:32:13.960 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:14.151 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:14.554 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:32:14.554 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:32:15.012 D/SKK     (12649): SKKEngine: processKey: code=73 char='I' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:15.020 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='い'
+07-30 07:32:15.020 D/SKK     (12649): FlickJP: cleanupState lastKey=-201 shiftBefore=true
+07-30 07:32:15.327 D/SKK     (12649): SKKEngine: processKey: code=114 char='r' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='い'
+07-30 07:32:15.328 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='r' kanjiKey='い'
+07-30 07:32:15.328 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKKanjiState kanji=true choose=false compose='r' kanjiKey='い'
+07-30 07:32:15.328 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いら'
+07-30 07:32:15.328 D/SKK     (12649): FlickJP: cleanupState lastKey=-209 shiftBefore=false
+07-30 07:32:15.664 D/SKK     (12649): SKKEngine: processKey: code=115 char='s' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いら'
+07-30 07:32:15.665 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='s' kanjiKey='いら'
+07-30 07:32:15.665 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKKanjiState kanji=true choose=false compose='s' kanjiKey='いら'
+07-30 07:32:15.665 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いらす'
+07-30 07:32:15.665 D/SKK     (12649): FlickJP: cleanupState lastKey=-203 shiftBefore=false
+07-30 07:32:16.024 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いらす'
+07-30 07:32:16.025 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='t' kanjiKey='いらす'
+07-30 07:32:16.025 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKKanjiState kanji=true choose=false compose='t' kanjiKey='いらす'
+07-30 07:32:16.025 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いらすと'
+07-30 07:32:16.025 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:16.289 D/SKK     (12649): SKKEngine: processKey: code=115 char='s' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いらすと'
+07-30 07:32:16.289 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='s' kanjiKey='いらすと'
+07-30 07:32:16.289 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKKanjiState kanji=true choose=false compose='s' kanjiKey='いらすと'
+07-30 07:32:16.289 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いらすとし'
+07-30 07:32:16.289 D/SKK     (12649): FlickJP: cleanupState lastKey=-203 shiftBefore=false
+07-30 07:32:16.551 D/SKK     (12649): FlickJP: processYAKey isShifted=false flick=[UP]
+07-30 07:32:16.551 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=117
+07-30 07:32:16.551 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いらすとし'
+07-30 07:32:16.551 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='y' kanjiKey='いらすとし'
+07-30 07:32:16.551 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKKanjiState kanji=true choose=false compose='y' kanjiKey='いらすとし'
+07-30 07:32:16.552 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いらすとしゆ'
+07-30 07:32:16.552 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=false
+07-30 07:32:16.805 D/SKK     (12649): convertLastChar(str=ゆ, type=trans)
+07-30 07:32:16.805 D/SKK     (12649): first= (last=ゆ), kana=ゆ
+07-30 07:32:16.806 D/SKK     (12649): FlickJP: cleanupState lastKey=-1006 shiftBefore=false
+07-30 07:32:17.200 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いらすとしゅ'
+07-30 07:32:17.201 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='いらすとしゅう'
+07-30 07:32:17.201 D/SKK     (12649): FlickJP: cleanupState lastKey=-201 shiftBefore=false
+07-30 07:32:17.475 D/SKK     (12649): SKKEngine: processKey: code=113 char='q' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='いらすとしゅう'
+07-30 07:32:17.488 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:17.488 D/SKK     (12649): FlickJP: cleanupState lastKey=-1005 shiftBefore=false
+07-30 07:32:17.883 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:17.883 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:17.883 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:17.883 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:17.883 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:18.184 D/SKK     (12649): SKKEngine: processKey: code=115 char='s' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:18.184 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='s' kanjiKey=''
+07-30 07:32:18.184 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKHiraganaState kanji=false choose=false compose='s' kanjiKey=''
+07-30 07:32:18.185 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:18.185 D/SKK     (12649): FlickJP: cleanupState lastKey=-203 shiftBefore=false
+07-30 07:32:18.448 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:18.449 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:18.449 D/SKK     (12649): SKKEngine: processKey: code=101 char='e' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:18.449 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:18.449 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:18.741 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:32:18.741 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:32:18.958 D/SKK     (12649): SKKEngine: processKey: code=75 char='K' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:18.959 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='k' kanjiKey=''
+07-30 07:32:18.959 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKKanjiState kanji=true choose=false compose='k' kanjiKey=''
+07-30 07:32:18.959 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='か'
+07-30 07:32:18.959 D/SKK     (12649): FlickJP: cleanupState lastKey=-202 shiftBefore=true
+07-30 07:32:19.260 D/SKK     (12649): SKKEngine: processKey: code=109 char='m' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='か'
+07-30 07:32:19.260 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='m' kanjiKey='か'
+07-30 07:32:19.260 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKKanjiState kanji=true choose=false compose='m' kanjiKey='か'
+07-30 07:32:19.260 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='かみ'
+07-30 07:32:19.260 D/SKK     (12649): FlickJP: cleanupState lastKey=-207 shiftBefore=false
+07-30 07:32:19.558 D/SKK     (12649): SKKEngine: processKey: code=32 char=' ' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='かみ'
+07-30 07:32:19.559 D/SKK     (12649): user dictionary: かみ -> null with null
+07-30 07:32:19.575 D/SKK     (12649): SKKEngine: ->after state=SKKChooseState compose='' kanjiKey='かみ'
+07-30 07:32:19.576 D/SKK     (12649): FlickJP: cleanupState lastKey=-1004 shiftBefore=false
+07-30 07:32:19.922 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKChooseState kanji=false choose=true compose='' kanjiKey='かみ'
+07-30 07:32:19.949 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:19.950 D/SKK     (12649): SKKEngine: processKey: code=101 char='e' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:19.950 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:19.950 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:20.141 D/SKK     (12649): convertLastChar(str=神て, type=trans)
+07-30 07:32:20.141 D/SKK     (12649): first=神 (last=て), kana=て
+07-30 07:32:20.141 D/SKK     (12649): changeLastChar: 2chars=(神, で)
+07-30 07:32:20.141 D/SKK     (12649): FlickJP: cleanupState lastKey=-1006 shiftBefore=false
+07-30 07:32:20.387 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:20.387 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:20.387 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:20.387 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:20.387 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:20.620 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:20.792 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:20.975 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:21.304 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:32:21.304 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:32:21.541 D/SKK     (12649): SKKEngine: processKey: code=75 char='K' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:21.541 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='k' kanjiKey=''
+07-30 07:32:21.541 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKKanjiState kanji=true choose=false compose='k' kanjiKey=''
+07-30 07:32:21.541 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='か'
+07-30 07:32:21.541 D/SKK     (12649): FlickJP: cleanupState lastKey=-202 shiftBefore=true
+07-30 07:32:21.833 D/SKK     (12649): SKKEngine: processKey: code=109 char='m' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='か'
+07-30 07:32:21.834 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='m' kanjiKey='か'
+07-30 07:32:21.834 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKKanjiState kanji=true choose=false compose='m' kanjiKey='か'
+07-30 07:32:21.834 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='かみ'
+07-30 07:32:21.834 D/SKK     (12649): FlickJP: cleanupState lastKey=-207 shiftBefore=false
+07-30 07:32:22.123 D/SKK     (12649): SKKEngine: processKey: code=114 char='r' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='かみ'
+07-30 07:32:22.123 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='r' kanjiKey='かみ'
+07-30 07:32:22.123 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKKanjiState kanji=true choose=false compose='r' kanjiKey='かみ'
+07-30 07:32:22.124 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='かみら'
+07-30 07:32:22.124 D/SKK     (12649): FlickJP: cleanupState lastKey=-209 shiftBefore=false
+07-30 07:32:22.350 D/SKK     (12649): SKKEngine: processKey: code=32 char=' ' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='かみら'
+07-30 07:32:22.350 D/SKK     (12649): user dictionary: かみら -> null with null
+07-30 07:32:22.357 D/SKK     (12649): SKKEngine: ->after state=SKKChooseState compose='' kanjiKey='かみら'
+07-30 07:32:22.357 D/SKK     (12649): FlickJP: cleanupState lastKey=-1004 shiftBefore=false
+07-30 07:32:22.964 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:23.167 D/SKK     (12649): FlickJP: cleanupState lastKey=-5 shiftBefore=false
+07-30 07:32:23.918 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:23.918 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:23.918 D/SKK     (12649): SKKEngine: processKey: code=101 char='e' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:23.918 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:23.918 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:24.153 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:32:24.153 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:32:24.356 D/SKK     (12649): SKKEngine: processKey: code=75 char='K' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:24.357 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='k' kanjiKey=''
+07-30 07:32:24.357 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKKanjiState kanji=true choose=false compose='k' kanjiKey=''
+07-30 07:32:24.357 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='か'
+07-30 07:32:24.357 D/SKK     (12649): FlickJP: cleanupState lastKey=-202 shiftBefore=true
+07-30 07:32:24.611 D/SKK     (12649): SKKEngine: processKey: code=109 char='m' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='か'
+07-30 07:32:24.611 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='m' kanjiKey='か'
+07-30 07:32:24.611 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKKanjiState kanji=true choose=false compose='m' kanjiKey='か'
+07-30 07:32:24.611 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='かみ'
+07-30 07:32:24.611 D/SKK     (12649): FlickJP: cleanupState lastKey=-207 shiftBefore=false
+07-30 07:32:24.889 D/SKK     (12649): SKKEngine: processKey: code=32 char=' ' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='かみ'
+07-30 07:32:24.889 D/SKK     (12649): user dictionary: かみ -> null with null
+07-30 07:32:24.896 D/SKK     (12649): SKKEngine: ->after state=SKKChooseState compose='' kanjiKey='かみ'
+07-30 07:32:24.896 D/SKK     (12649): FlickJP: cleanupState lastKey=-1004 shiftBefore=false
+07-30 07:32:25.436 D/SKK     (12649): SKKEngine: processKey: code=32 char=' ' state=SKKChooseState kanji=false choose=true compose='' kanjiKey='かみ'
+07-30 07:32:25.436 D/SKK     (12649): SKKEngine: ->after state=SKKChooseState compose='' kanjiKey='かみ'
+07-30 07:32:25.436 D/SKK     (12649): FlickJP: cleanupState lastKey=-1004 shiftBefore=false
+07-30 07:32:26.257 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKChooseState kanji=false choose=true compose='' kanjiKey='かみ'
+07-30 07:32:26.271 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:26.271 D/SKK     (12649): SKKEngine: processKey: code=101 char='e' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:26.271 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:26.271 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:26.516 D/SKK     (12649): convertLastChar(str=紙て, type=trans)
+07-30 07:32:26.516 D/SKK     (12649): first=紙 (last=て), kana=て
+07-30 07:32:26.516 D/SKK     (12649): changeLastChar: 2chars=(紙, で)
+07-30 07:32:26.516 D/SKK     (12649): FlickJP: cleanupState lastKey=-1006 shiftBefore=false
+07-30 07:32:26.767 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:26.767 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:26.767 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:26.767 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:26.767 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:27.177 D/SKK     (12649): convertLastChar(str=でた, type=trans)
+07-30 07:32:27.177 D/SKK     (12649): first=で (last=た), kana=た
+07-30 07:32:27.177 D/SKK     (12649): changeLastChar: 2chars=(で, だ)
+07-30 07:32:27.177 D/SKK     (12649): FlickJP: cleanupState lastKey=-1006 shiftBefore=false
+07-30 07:32:27.461 D/SKK     (12649): SKKEngine: processKey: code=115 char='s' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:27.462 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='s' kanjiKey=''
+07-30 07:32:27.462 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKHiraganaState kanji=false choose=false compose='s' kanjiKey=''
+07-30 07:32:27.462 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:27.462 D/SKK     (12649): FlickJP: cleanupState lastKey=-203 shiftBefore=false
+07-30 07:32:27.780 D/SKK     (12649): SKKEngine: processKey: code=116 char='t' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:27.781 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='t' kanjiKey=''
+07-30 07:32:27.781 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='t' kanjiKey=''
+07-30 07:32:27.781 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:27.781 D/SKK     (12649): FlickJP: cleanupState lastKey=-204 shiftBefore=false
+07-30 07:32:28.044 D/SKK     (12649): SKKEngine: processKey: code=107 char='k' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:32:28.044 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='k' kanjiKey=''
+07-30 07:32:28.044 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKHiraganaState kanji=false choose=false compose='k' kanjiKey=''
+07-30 07:32:28.044 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:32:28.044 D/SKK     (12649): FlickJP: cleanupState lastKey=-202 shiftBefore=false
+07-30 07:32:31.642 D/SKK     (12649): lifecycle: onStartInput
+07-30 07:32:31.644 D/SKK     (12649): lifecycle: onStartInputView
+07-30 07:32:31.646 D/SKK     (12649): lifecycle: onUpdateEditorToolType
+07-30 07:32:31.953 D/SKK     (12649): lifecycle: onFinishInputView
+07-30 07:33:20.856 D/SKK     (12649): lifecycle: onStartInput
+07-30 07:33:20.858 D/SKK     (12649): lifecycle: onUpdateEditorToolType
+07-30 07:33:20.858 D/SKK     (12649): lifecycle: onEvaluateInputViewShown
+07-30 07:33:20.859 D/SKK     (12649): lifecycle: onEvaluateInputViewShown
+07-30 07:33:20.859 D/SKK     (12649): lifecycle: onStartInputView
+07-30 07:33:22.165 D/SKK     (12649): FlickJP: processYAKey isShifted=false flick=[DOWN]
+07-30 07:33:22.165 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:33:22.165 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:22.165 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:22.165 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:22.165 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:22.165 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=false
+07-30 07:33:23.072 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:23.072 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:23.425 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[DOWN]
+07-30 07:33:23.425 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:33:23.425 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:23.426 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:23.426 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:23.426 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:23.426 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:24.060 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:24.060 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:24.355 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[DOWN]
+07-30 07:33:24.355 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:33:24.355 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:24.356 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:24.356 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:24.356 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:24.356 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:24.693 D/SKK     (12649): SKKEngine: processKey: code=114 char='r' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:24.694 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='r' kanjiKey=''
+07-30 07:33:24.694 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKHiraganaState kanji=false choose=false compose='r' kanjiKey=''
+07-30 07:33:24.694 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:24.694 D/SKK     (12649): FlickJP: cleanupState lastKey=-209 shiftBefore=false
+07-30 07:33:25.545 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:25.545 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:26.036 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[NONE]
+07-30 07:33:26.036 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=97
+07-30 07:33:26.036 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:26.036 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:26.036 D/SKK     (12649): SKKEngine: processKey: code=97 char='a' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:26.036 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:26.036 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:26.675 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:26.675 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:26.965 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[UP]
+07-30 07:33:26.965 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=117
+07-30 07:33:26.965 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:26.965 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:26.965 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:26.966 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:26.966 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:27.283 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:27.283 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:27.616 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[DOWN]
+07-30 07:33:27.616 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:33:27.616 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:27.616 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:27.616 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:27.616 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:27.616 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:29.533 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:29.533 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:30.846 D/SKK     (12649): SKKEngine: processKey: code=72 char='H' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:30.847 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='h' kanjiKey=''
+07-30 07:33:30.847 D/SKK     (12649): SKKEngine: processKey: code=105 char='i' state=SKKKanjiState kanji=true choose=false compose='h' kanjiKey=''
+07-30 07:33:30.847 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='ひ'
+07-30 07:33:30.847 D/SKK     (12649): FlickJP: cleanupState lastKey=-206 shiftBefore=true
+07-30 07:33:31.319 D/SKK     (12649): SKKEngine: processKey: code=114 char='r' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='ひ'
+07-30 07:33:31.320 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='r' kanjiKey='ひ'
+07-30 07:33:31.320 D/SKK     (12649): SKKEngine: processKey: code=117 char='u' state=SKKKanjiState kanji=true choose=false compose='r' kanjiKey='ひ'
+07-30 07:33:31.320 D/SKK     (12649): SKKEngine: ->after state=SKKKanjiState compose='' kanjiKey='ひる'
+07-30 07:33:31.320 D/SKK     (12649): FlickJP: cleanupState lastKey=-209 shiftBefore=false
+07-30 07:33:31.625 D/SKK     (12649): SKKEngine: processKey: code=32 char=' ' state=SKKKanjiState kanji=true choose=false compose='' kanjiKey='ひる'
+07-30 07:33:31.625 D/SKK     (12649): user dictionary: ひる -> null with null
+07-30 07:33:31.639 D/SKK     (12649): SKKEngine: ->after state=SKKChooseState compose='' kanjiKey='ひる'
+07-30 07:33:31.639 D/SKK     (12649): FlickJP: cleanupState lastKey=-1004 shiftBefore=false
+07-30 07:33:32.100 D/SKK     (12649): FlickJP: cleanupState lastKey=-1007 shiftBefore=false
+07-30 07:33:32.865 D/SKK     (12649): FlickJP: releaseShiftKey isShifted=false lastKey=-1
+07-30 07:33:32.865 D/SKK     (12649): FlickJP: cleanupState lastKey=-1 shiftBefore=true
+07-30 07:33:33.253 D/SKK     (12649): FlickJP: processYAKey isShifted=true flick=[DOWN]
+07-30 07:33:33.253 D/SKK     (12649): FlickJP: processing y.vowel y=121 vowel=111
+07-30 07:33:33.253 D/SKK     (12649): SKKEngine: processKey: code=121 char='y' state=SKKHiraganaState kanji=false choose=false compose='' kanjiKey=''
+07-30 07:33:33.254 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='y' kanjiKey=''
+07-30 07:33:33.254 D/SKK     (12649): SKKEngine: processKey: code=111 char='o' state=SKKHiraganaState kanji=false choose=false compose='y' kanjiKey=''
+07-30 07:33:33.254 D/SKK     (12649): SKKEngine: ->after state=SKKHiraganaState compose='' kanjiKey=''
+07-30 07:33:33.254 D/SKK     (12649): FlickJP: cleanupState lastKey=-208 shiftBefore=true
+07-30 07:33:36.522 D/SKK     (12649): lifecycle: onStartInput
+07-30 07:33:36.528 D/SKK     (12649): lifecycle: onStartInputView
+07-30 07:33:36.532 D/SKK     (12649): lifecycle: onUpdateEditorToolType
+07-30 07:33:36.857 D/SKK     (12649): lifecycle: onFinishInputView

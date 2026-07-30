@@ -31,6 +31,19 @@ object SKKOkuriganaState : SKKConfirmingState {
             // l, L, q, / による暗黙の確定
             if (changeInputMode(keyCode)) return
 
+            // 全角句読点: 送り仮名モードを終了し、mKanjiKeyに追加
+            when (codeLower) {
+                '！'.code, '？'.code, '。'.code, '、'.code -> {
+                    mKanjiKey.append(codeLower.toChar())
+                    mOkurigana = ""
+                    mComposing.setLength(0)
+                    setComposingTextSKK(mKanjiKey)
+                    context.changeState(SKKKanjiState)
+                    updateSuggestions(mKanjiKey.toString())
+                    return
+                }
+            }
+
             if (mComposing.length == 1 && mOkurigana.isEmpty()) {
                 // 「ん」か「っ」を処理したらここで終わり
                 val hiraganaChar = RomajiConverter.checkSpecialConsonants(mComposing[0], codeLower)

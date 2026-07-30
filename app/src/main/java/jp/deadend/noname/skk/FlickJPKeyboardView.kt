@@ -19,7 +19,10 @@ import jp.deadend.noname.skk.engine.SKKChooseState
 import jp.deadend.noname.skk.engine.SKKEngine
 import jp.deadend.noname.skk.engine.SKKHanKanaState
 import jp.deadend.noname.skk.engine.SKKHiraganaState
+import jp.deadend.noname.skk.engine.SKKKanjiState
 import jp.deadend.noname.skk.engine.SKKKatakanaState
+import jp.deadend.noname.skk.engine.SKKNarrowingState
+import jp.deadend.noname.skk.engine.SKKOkuriganaState
 import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
@@ -730,11 +733,20 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             EnumSet.of(FlickState.RIGHT) to "！",
         )
         keyMap[flick]?.let { text ->
-            // 変換モード中は先に確定してから句読点を入力
-            if (mService.engineState is SKKConfirmingState) {
-                mService.handleEnter()
+            when (mService.engineState) {
+                is SKKKanjiState, is SKKOkuriganaState -> {
+                    // 変換モード中はmKanjiKeyに追加して変換継続
+                    mService.processKey(text.first().code)
+                }
+                is SKKChooseState, is SKKNarrowingState -> {
+                    // 候補選択中は確定してから句読点をコミット
+                    mService.handleEnter()
+                    mService.commitTextSKK(text)
+                }
+                else -> {
+                    mService.commitTextSKK(text)
+                }
             }
-            mService.commitTextSKK(text)
         }
     }
 
@@ -759,11 +771,20 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             if (flick == EnumSet.of(FlickState.NONE)) {
                 mService.processKeyIn(SKKZenkakuState, key)
             } else {
-                // 変換モード中は先に確定してから入力
-                if (mService.engineState is SKKConfirmingState) {
-                    mService.handleEnter()
+                when (mService.engineState) {
+                    is SKKKanjiState, is SKKOkuriganaState -> {
+                        // 変換モード中はmKanjiKeyに追加して変換継続
+                        mService.processKey(key)
+                    }
+                    is SKKChooseState, is SKKNarrowingState -> {
+                        // 候補選択中は確定してから入力
+                        mService.handleEnter()
+                        mService.processKey(key)
+                    }
+                    else -> {
+                        mService.processKey(key)
+                    }
                 }
-                mService.processKey(key)
             }
         }
     }
@@ -786,11 +807,20 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             EnumSet.of(FlickState.DOWN) to "／",
         )
         keyMap[flick]?.let { text ->
-            // 変換モード中は先に確定してから入力
-            if (mService.engineState is SKKConfirmingState) {
-                mService.handleEnter()
+            when (mService.engineState) {
+                is SKKKanjiState, is SKKOkuriganaState -> {
+                    // 変換モード中はmKanjiKeyに追加して変換継続
+                    mService.processKey(text.first().code)
+                }
+                is SKKChooseState, is SKKNarrowingState -> {
+                    // 候補選択中は確定してから入力
+                    mService.handleEnter()
+                    mService.commitTextSKK(text)
+                }
+                else -> {
+                    mService.commitTextSKK(text)
+                }
             }
-            mService.commitTextSKK(text)
         }
     }
 
@@ -812,11 +842,20 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             EnumSet.of(FlickState.DOWN) to "＊",
         )
         keyMap[flick]?.let { text ->
-            // 変換モード中は先に確定してから入力
-            if (mService.engineState is SKKConfirmingState) {
-                mService.handleEnter()
+            when (mService.engineState) {
+                is SKKKanjiState, is SKKOkuriganaState -> {
+                    // 変換モード中はmKanjiKeyに追加して変換継続
+                    mService.processKey(text.first().code)
+                }
+                is SKKChooseState, is SKKNarrowingState -> {
+                    // 候補選択中は確定してから入力
+                    mService.handleEnter()
+                    mService.commitTextSKK(text)
+                }
+                else -> {
+                    mService.commitTextSKK(text)
+                }
             }
-            mService.commitTextSKK(text)
         }
     }
 
