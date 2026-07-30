@@ -4,9 +4,11 @@ import jp.deadend.noname.skk.createTrimmedBuilder
 import jp.deadend.noname.skk.skkPrefs
 
 // 送り仮名入力中(▽モード，*つき)
-object SKKOkuriganaState : SKKState {
+object SKKOkuriganaState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
+    override var pendingLambda: (() -> Unit)? = null
+    override var oldComposingText: String = ""
 
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {

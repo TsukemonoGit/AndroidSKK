@@ -14,6 +14,7 @@ import androidx.core.content.res.ResourcesCompat
 import java.util.EnumSet
 import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
 import jp.deadend.noname.skk.engine.SKKASCIIState
+import jp.deadend.noname.skk.engine.SKKConfirmingState
 import jp.deadend.noname.skk.engine.SKKChooseState
 import jp.deadend.noname.skk.engine.SKKEngine
 import jp.deadend.noname.skk.engine.SKKHanKanaState
@@ -647,6 +648,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      * - 通常: や行の文字入力（シフト対応）
      */
     private fun processYAKey(flick: EnumSet<FlickState>) {
+        dLog("FlickJP: processYAKey isShifted=$isShifted flick=$flick")
         val symbol = when {
             flick.contains(FlickState.LEFT) -> {
                 when {
@@ -670,7 +672,9 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         }
 
         withSuggestionsSuspended {
-            mService.processKey('y'.code)
+            val yCode = if (isShifted) 'Y'.code else 'y'.code
+            dLog("FlickJP: processing y.vowel y=$yCode vowel=${flickProcessor.getVowelForFlick(flick)}")
+            mService.processKey(yCode)
             mService.processKey(flickProcessor.getVowelForFlick(flick))
         }
     }
@@ -720,17 +724,17 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      */
     private fun processTenKey(flick: EnumSet<FlickState>) {
         val keyMap = mapOf(
-            EnumSet.of(FlickState.NONE) to '、'.code,
-            EnumSet.of(FlickState.LEFT) to '。'.code,
-            EnumSet.of(FlickState.UP) to '？'.code,
-            EnumSet.of(FlickState.RIGHT) to '！'.code,
+            EnumSet.of(FlickState.NONE) to "、",
+            EnumSet.of(FlickState.LEFT) to "。",
+            EnumSet.of(FlickState.UP) to "？",
+            EnumSet.of(FlickState.RIGHT) to "！",
         )
-        when {
-            flick in keyMap -> mService.processKey(keyMap[flick]!!)
-            flick == EnumSet.of(FlickState.DOWN) -> {
-                mService.processKey('z'.code)
-                mService.processKey('。'.code)
+        keyMap[flick]?.let { text ->
+            // 変換モード中は先に確定してから句読点を入力
+            if (mService.engineState is SKKConfirmingState) {
+                mService.handleEnter()
             }
+            mService.commitTextSKK(text)
         }
     }
 
@@ -755,6 +759,10 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             if (flick == EnumSet.of(FlickState.NONE)) {
                 mService.processKeyIn(SKKZenkakuState, key)
             } else {
+                // 変換モード中は先に確定してから入力
+                if (mService.engineState is SKKConfirmingState) {
+                    mService.handleEnter()
+                }
                 mService.processKey(key)
             }
         }
@@ -777,7 +785,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             EnumSet.of(FlickState.RIGHT) to "：",
             EnumSet.of(FlickState.DOWN) to "／",
         )
-        keyMap[flick]?.let { mService.commitTextSKK(it) }
+        keyMap[flick]?.let { text ->
+            // 変換モード中は先に確定してから入力
+            if (mService.engineState is SKKConfirmingState) {
+                mService.handleEnter()
+            }
+            mService.commitTextSKK(text)
+        }
     }
 
     /**
@@ -797,7 +811,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             EnumSet.of(FlickState.RIGHT) to "＄",
             EnumSet.of(FlickState.DOWN) to "＊",
         )
-        keyMap[flick]?.let { mService.commitTextSKK(it) }
+        keyMap[flick]?.let { text ->
+            // 変換モード中は先に確定してから入力
+            if (mService.engineState is SKKConfirmingState) {
+                mService.handleEnter()
+            }
+            mService.commitTextSKK(text)
+        }
     }
 
     override fun onModifiedTouchEvent(me: MotionEvent, possiblePoly: Boolean): Boolean {
@@ -1146,6 +1166,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun releaseShiftKey() {
+        dLog("FlickJP: releaseShiftKey isShifted=$isShifted lastKey=$mLastPressedKey")
         isShifted = shiftToggleProcessor.toggleShift(isShifted)
         onSetShifted()
     }
@@ -1229,6 +1250,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun cleanupState() {
+        dLog("FlickJP: cleanupState lastKey=$mLastPressedKey shiftBefore=$isShifted")
         if (mLastPressedKey != Keyboard.KEYCODE_SHIFT) {
             isShifted = false
             onSetShifted()

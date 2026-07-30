@@ -8,9 +8,11 @@ import jp.deadend.noname.skk.skkPrefs
 import jp.deadend.noname.skk.zenkaku2hankaku
 
 // 漢字変換のためのひらがな入力中(▽モード)
-object SKKKanjiState : SKKState {
+object SKKKanjiState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
+    override var pendingLambda: (() -> Unit)? = null
+    override var oldComposingText: String = ""
 
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {
