@@ -1263,7 +1263,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun releaseToKanaKey() {
-        val kanaAction = toKanaKeyProcessor.processToKanaKey(keyboard !== mJPKeyboard)
+        val kanaAction = toKanaKeyProcessor.processToKanaKey(keyboard === mJPKeyboard)
         if (kanaAction == ToKanaKeyProcessor.ToKanaAction.SWITCH_TO_JP) {
             keyboard = mJPKeyboard
             isHankaku = toKanaKeyProcessor.calculateHankakuState(mService.kanaState)
