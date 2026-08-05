@@ -792,19 +792,19 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     /**
      * 記号数字キー（右上）のフリック入力を処理する
      *
-     * - NONE: ，
-     * - LEFT: ．
-     * - UP: －
-     * - RIGHT: ：
-     * - DOWN: ／
+     * - NONE: ,
+     * - LEFT: .
+     * - UP: -
+     * - RIGHT: :
+     * - DOWN: /
      */
     private fun processTenNumKey(flick: EnumSet<FlickState>) {
         val keyMap = mapOf(
-            EnumSet.of(FlickState.NONE) to "，",
-            EnumSet.of(FlickState.LEFT) to "．",
-            EnumSet.of(FlickState.UP) to "－",
-            EnumSet.of(FlickState.RIGHT) to "：",
-            EnumSet.of(FlickState.DOWN) to "／",
+            EnumSet.of(FlickState.NONE) to ",",
+            EnumSet.of(FlickState.LEFT) to ".",
+            EnumSet.of(FlickState.UP) to "-",
+            EnumSet.of(FlickState.RIGHT) to ":",
+            EnumSet.of(FlickState.DOWN) to "/",
         )
         keyMap[flick]?.let { text ->
             when (mService.engineState) {
@@ -827,19 +827,19 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     /**
      * 記号数字キーLEFT（左下）のフリック入力を処理する
      *
-     * - NONE: ＃
-     * - LEFT: ￥
-     * - UP: ＋
-     * - RIGHT: ＄
-     * - DOWN: ＊
+     * - NONE: #
+     * - LEFT: \
+     * - UP: +
+     * - RIGHT: $
+     * - DOWN: *
      */
     private fun processTenNumLeftKey(flick: EnumSet<FlickState>) {
         val keyMap = mapOf(
-            EnumSet.of(FlickState.NONE) to "＃",
-            EnumSet.of(FlickState.LEFT) to "￥",
-            EnumSet.of(FlickState.UP) to "＋",
-            EnumSet.of(FlickState.RIGHT) to "＄",
-            EnumSet.of(FlickState.DOWN) to "＊",
+            EnumSet.of(FlickState.NONE) to "#",
+            EnumSet.of(FlickState.LEFT) to "\\",
+            EnumSet.of(FlickState.UP) to "+",
+            EnumSet.of(FlickState.RIGHT) to "$",
+            EnumSet.of(FlickState.DOWN) to "*",
         )
         keyMap[flick]?.let { text ->
             when (mService.engineState) {
