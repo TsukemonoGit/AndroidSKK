@@ -144,7 +144,17 @@ class SKKEngine(
         mHistoryDict?.close()
     }
 
-    fun processKey(keyCode: Int) = state.processKey(this, keyCode)
+    fun processKey(keyCode: Int) {
+        val keyChar = keyCode.toChar()
+        val stateName = state.javaClass.simpleName
+        val isKanji = state is SKKKanjiState
+        val isChoose = state is SKKChooseState
+        val msg = "processKey: code=$keyCode char='$keyChar' state=$stateName kanji=$isKanji choose=$isChoose compose='${mComposing.toString()}' kanjiKey='${mKanjiKey.toString()}'"
+        dLog("SKKEngine: $msg")
+        state.processKey(this, keyCode)
+        val newStateName = state.javaClass.simpleName
+        dLog("SKKEngine: ->after state=$newStateName compose='${mComposing.toString()}' kanjiKey='${mKanjiKey.toString()}'")
+    }
 
     fun handleKanaKey() = state.handleKanaKey(this)
 
@@ -237,6 +247,7 @@ class SKKEngine(
      * @param text
      */
     fun commitTextSKK(text: CharSequence) {
+        dLog("SKKEngine: commitTextSKK text=$text state=${this::class.simpleName}")
         val ic = mService.currentInputConnection ?: return
 
         mRegistrationStack.peekFirst()?.entry.let { firstEntry ->

@@ -138,7 +138,7 @@ class SKKPrefs(context: Context) {
                 prefs.edit { putBoolean(res.getString(R.string.pref_use_soft_trans_key), value) }
 
     var useSmallK: Boolean
-        get() = prefs.getBoolean(res.getString(R.string.pref_use_small_k), false)
+        get() = prefs.getBoolean(res.getString(R.string.pref_use_small_k), true)
         set(value) = prefs.edit { putBoolean(res.getString(R.string.pref_use_small_k), value) }
 
     var changeShift: Boolean

@@ -4,9 +4,11 @@ import jp.deadend.noname.skk.createTrimmedBuilder
 import jp.deadend.noname.skk.skkPrefs
 
 // 送り仮名入力中(▽モード，*つき)
-object SKKOkuriganaState : SKKState {
+object SKKOkuriganaState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
+    override var pendingLambda: (() -> Unit)? = null
+    override var oldComposingText: String = ""
 
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {
@@ -28,6 +30,19 @@ object SKKOkuriganaState : SKKState {
         context.apply {
             // l, L, q, / による暗黙の確定
             if (changeInputMode(keyCode)) return
+
+            // 全角句読点: 送り仮名モードを終了し、mKanjiKeyに追加
+            when (codeLower) {
+                '！'.code, '？'.code, '。'.code, '、'.code -> {
+                    mKanjiKey.append(codeLower.toChar())
+                    mOkurigana = ""
+                    mComposing.setLength(0)
+                    setComposingTextSKK(mKanjiKey)
+                    context.changeState(SKKKanjiState)
+                    updateSuggestions(mKanjiKey.toString())
+                    return
+                }
+            }
 
             if (mComposing.length == 1 && mOkurigana.isEmpty()) {
                 // 「ん」か「っ」を処理したらここで終わり

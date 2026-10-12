@@ -8,9 +8,11 @@ import jp.deadend.noname.skk.skkPrefs
 import jp.deadend.noname.skk.zenkaku2hankaku
 
 // 漢字変換のためのひらがな入力中(▽モード)
-object SKKKanjiState : SKKState {
+object SKKKanjiState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
+    override var pendingLambda: (() -> Unit)? = null
+    override var oldComposingText: String = ""
 
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {
@@ -40,6 +42,28 @@ object SKKKanjiState : SKKState {
             }
 
             when (codeLower) {
+                // 全角句読点: mKanjiKeyに追加して変換継続
+                '！'.code -> {
+                    mKanjiKey.append('！')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '？'.code -> {
+                    mKanjiKey.append('？')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '。'.code -> {
+                    mKanjiKey.append('。')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+                '、'.code -> {
+                    mKanjiKey.append('、')
+                    setComposingTextSKK(mKanjiKey)
+                    updateSuggestions(mKanjiKey.toString())
+                }
+
                 'l'.code -> changeInputMode(keyCode)
 
                 '/'.code -> changeInputMode(keyCode)

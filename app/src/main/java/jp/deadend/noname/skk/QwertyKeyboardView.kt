@@ -17,6 +17,9 @@ import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
 class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
+    private val backspaceKeyProcessor = BackspaceKeyProcessor()
+    private val enterKeyProcessor = EnterKeyProcessor()
+
     val mLatinKeyboard: Keyboard by lazy {
         Keyboard(context, R.xml.qwerty, mService.mScreenWidth, mService.mScreenHeight)
     }
@@ -244,7 +247,10 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             // repeatable
             Keyboard.KEYCODE_DELETE -> {
                 if (!isCapsLocked) isShifted = false
-                if (!mService.handleBackspace()) mService.pressDel()
+                val backspaceAction = backspaceKeyProcessor.processBackspaceKey(mService.handleBackspace())
+                if (backspaceAction == BackspaceKeyProcessor.BackspaceAction.PRESS_DEL) {
+                    mService.pressDel()
+                }
             }
             // codes[0] 以外
             Keyboard.KEYCODE_CAPSLOCK -> {
@@ -291,17 +297,20 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
 
             KEYCODE_QWERTY_ENTER -> {
                 if (!isCapsLocked) isShifted = false
-                if (!mService.handleEnter()) mService.pressEnter()
+                val enterAction = enterKeyProcessor.processEnterKey(mService.handleEnter())
+                if (enterAction == EnterKeyProcessor.EnterAction.PRESS_ENTER) {
+                    mService.pressEnter()
+                }
             }
 
             KEYCODE_QWERTY_TO_JP -> {
-                // preferFlick 設定で通常タップ/下フリックの役割を切り替え
-                // Shift状態に影響されないようisFlickedを直接比較（flickUp/flickNone変数を使用しない）
+                // preferFlick=true: タップ→フリック切替, 下フリック→かな入力
+                // preferFlick=false: タップ→かな入力, 下フリック→フリック切替
                 when (isFlicked) {
-                    if (skkPrefs.preferFlick) FLICK_NONE else FLICK_DOWN -> mService.changeToFlick()
-                    if (skkPrefs.preferFlick) FLICK_DOWN else FLICK_NONE -> mService.handleKanaKey()
+                    FLICK_LEFT -> mService.showEmojiPicker()
+                    FLICK_NONE -> if (skkPrefs.preferFlick) mService.changeToFlick() else mService.handleKanaKey()
                     FLICK_UP -> mService.pasteClip()
-                    FLICK_LEFT -> mService.showEmojiPicker() // 絵文字
+                    FLICK_DOWN -> if (skkPrefs.preferFlick) mService.handleKanaKey() else mService.changeToFlick()
                     else -> {}
                 }
             }
