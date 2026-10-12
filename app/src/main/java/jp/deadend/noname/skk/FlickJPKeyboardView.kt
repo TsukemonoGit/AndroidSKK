@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.util.SparseArray
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.PopupWindow
 import android.widget.TextView
@@ -344,6 +345,9 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         val size = (mPopupSize * scale + 0.5f).toInt()
 
         val popup = PopupWindow(view, size, size)
+        // ガイドは表示専用。タッチ/フォーカスを奪わない（back キーを消費しない）ようにする
+        popup.isFocusable = false
+        popup.isTouchable = false
         // ~ popup.setWindowLayoutMode(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         popup.animationStyle = 0
 
@@ -1093,20 +1097,29 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             if (mFixedPopupPos[0] == 0) calculatePopupPos()
 
             val popup = checkNotNull(mPopup) { "BUG: popup is null!!" }
+            // ウィンドウはキーごとに破棄せず使い回す。
+            // dismiss→show を毎回行うと別ウィンドウの生成/破棄が走り、
+            // 描画スレッドの停止待ち(RenderProxy::setStopped)で ANR を誘発するため。
+            popup.contentView.visibility = View.VISIBLE
             if (mFixedPopup) {
-                popup.showAtLocation(
-                        this,
-                        android.view.Gravity.NO_GRAVITY,
-                        mFixedPopupPos[0],
-                        mFixedPopupPos[1]
-                )
+                // 固定位置: 初回のみ表示し、以降は位置を変えない
+                if (!popup.isShowing) {
+                    popup.showAtLocation(
+                            this,
+                            android.view.Gravity.NO_GRAVITY,
+                            mFixedPopupPos[0],
+                            mFixedPopupPos[1]
+                    )
+                }
             } else {
-                popup.showAtLocation(
-                        this,
-                        android.view.Gravity.NO_GRAVITY,
-                        mFlickStartX.toInt() + mPopupOffset[0],
-                        mFlickStartY.toInt() + mPopupOffset[1]
-                )
+                // 非固定位置: 表示済みなら位置だけ更新する
+                val x = mFlickStartX.toInt() + mPopupOffset[0]
+                val y = mFlickStartY.toInt() + mPopupOffset[1]
+                if (popup.isShowing) {
+                    popup.update(x, y, popup.width, popup.height)
+                } else {
+                    popup.showAtLocation(this, android.view.Gravity.NO_GRAVITY, x, y)
+                }
             }
         }
     }
@@ -1300,8 +1313,8 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         mFlickStartX = -1f
         mFlickStartY = -1f
         if (mUsePopup) {
-            val popup = checkNotNull(mPopup) { "BUG: popup is null!!" }
-            if (popup.isShowing) popup.dismiss()
+            // ウィンドウは破棄せず内容だけ隠す（次キーで使い回すため）
+            mPopup?.contentView?.visibility = View.INVISIBLE
         }
     }
 
