@@ -812,9 +812,17 @@ class SKKService : InputMethodService() {
 
     override fun setCandidatesView(view: View?) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        (view?.parent as? FrameLayout)?.removeView(view)
+        // setCandidatesView は IME 自身が呼ぶ API で、フレームワークから null が来る経路は
+        // 現状ない。ただし View? を受ける以上 null で落ちないようにしておく。
+        // (super.setCandidatesView(null) は ViewGroup.addView(null) で落ちるため、先に返す)
+        if (view == null) {
+            mCandidatesViewContainer = null
+            mCandidatesView = null
+            return
+        }
+        (view.parent as? FrameLayout)?.removeView(view)
         super.setCandidatesView(view)
-        mCandidatesViewContainer = view as CandidatesViewContainer
+        mCandidatesViewContainer = view as? CandidatesViewContainer
     }
 
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
@@ -866,11 +874,10 @@ class SKKService : InputMethodService() {
 
     override fun onDestroy() {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        if (instance == null) {
-            dLog("skip onDestroy(): instance is null")
-            return
-        }
-
+        // 以前は instance == null で早期 return していたため、
+        // onCreate が辞書オープンに失敗した場合に super.onDestroy() が呼ばれず、
+        // ウィンドウや SpeechRecognizer の後始末が漏れていた。
+        // クリーンアップは個別にガードし、super は必ず呼ぶ。
         mHandler.removeCallbacksAndMessages(null)
         // B21修正: 辞書オープン失敗時はmEngineが未初期化のためisInitializedチェック
         // 順序の重要: 先にcloseUserDict()で辞書を閉じてからmEngine.close()でスコープをキャンセル。
@@ -882,7 +889,9 @@ class SKKService : InputMethodService() {
             mEngine.close()
         }
         mSpeechRecognizer.destroy()
-        instance = null
+        if (instance === this) {
+            instance = null
+        }
 
         super.onDestroy()
     }

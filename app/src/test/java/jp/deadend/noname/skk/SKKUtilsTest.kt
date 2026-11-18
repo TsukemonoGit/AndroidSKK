@@ -1,7 +1,16 @@
 package jp.deadend.noname.skk
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class SKKUtilsTest {
 
@@ -18,6 +27,12 @@ class SKKUtilsTest {
         assertEquals("－", hankaku2zenkaku("-")) // マイナス
         assertEquals("ー", hankaku2zenkaku("ｰ")) // 長音
         assertEquals(null, hankaku2zenkaku(null))
+        // ヲ と 中黒 は別の文字（回帰テスト）
+        assertEquals("ヲ", hankaku2zenkaku("ｦ"))
+        assertEquals("・", hankaku2zenkaku("･"))
+        // 単独の濁点・半濁点
+        assertEquals("゛", hankaku2zenkaku("ﾞ"))
+        assertEquals("゜", hankaku2zenkaku("ﾟ"))
     }
 
     @Test
@@ -34,6 +49,68 @@ class SKKUtilsTest {
         assertEquals("ｰ", zenkaku2hankaku("ー")) // 長音
         assertEquals("-", zenkaku2hankaku("－")) // マイナス
         assertEquals(null, zenkaku2hankaku(null))
+        // ヲ と 中黒 は別の文字（回帰テスト）
+        assertEquals("ｦ", zenkaku2hankaku("ヲ"))
+        assertEquals("･", zenkaku2hankaku("・"))
+        // 単独の濁点・半濁点（合成用 U+3099/U+309A と間隔用 U+309B/U+309C の両方）
+        assertEquals("ﾞ", zenkaku2hankaku("\u3099"))
+        assertEquals("ﾟ", zenkaku2hankaku("\u309A"))
+        assertEquals("ﾞ", zenkaku2hankaku("\u309B"))
+        assertEquals("ﾟ", zenkaku2hankaku("\u309C"))
+    }
+
+    @Test
+    fun testUnzipFile() {
+        val outDir = Files.createTempDirectory("skk-unzip").toFile()
+        try {
+            unzipFile(ByteArrayInputStream(zipOf("a/b.txt" to "hello")), outDir)
+            assertEquals("hello", File(outDir, "a/b.txt").readText())
+        } finally {
+            outDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testUnzipRejectsSiblingPrefixEscape() {
+        // outDir の名前を接頭辞に持つ兄弟ディレクトリへ脱出するケース。
+        // 文字列の startsWith では防げないため、パス要素単位の比較が必要。
+        val outDir = Files.createTempDirectory("skk-unzip").toFile()
+        val evilName = "../${outDir.name}-evil/evil.txt"
+        try {
+            unzipFile(ByteArrayInputStream(zipOf(evilName to "evil")), outDir)
+            fail("path traversal should be rejected: $evilName")
+        } catch (expected: IOException) {
+            // ok
+        } finally {
+            File(outDir.parentFile, "${outDir.name}-evil").deleteRecursively()
+            outDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun testUnzipRejectsParentEscape() {
+        val outDir = Files.createTempDirectory("skk-unzip").toFile()
+        try {
+            unzipFile(ByteArrayInputStream(zipOf("../evil.txt" to "evil")), outDir)
+            fail("path traversal should be rejected")
+        } catch (expected: IOException) {
+            // ok
+        } finally {
+            outDir.deleteRecursively()
+        }
+    }
+
+    private fun zipOf(vararg entries: Pair<String, String>): ByteArray {
+        val bos = ByteArrayOutputStream()
+        ZipOutputStream(bos).use { zos ->
+            entries.forEach { (name, body) ->
+                zos.putNextEntry(ZipEntry(name))
+                zos.write(body.toByteArray())
+                zos.closeEntry()
+            }
+        }
+        assertTrue(bos.size() > 0)
+        return bos.toByteArray()
     }
 
     @Test

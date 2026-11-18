@@ -262,6 +262,7 @@ class SKKEngine(
     }
 
     fun resetOnStartInput() {
+        clearPendingConfirmation()
         mComposing.setLength(0)
         mKanjiKey.setLength(0)
         mOkurigana = ""
@@ -1329,19 +1330,40 @@ class SKKEngine(
     }
 
     private fun reset() {
+        clearPendingConfirmation()
         mComposing.setLength(0)
         mKanjiKey.setLength(0)
         mOkurigana = ""
         mCandidateList = null
         mCandidateKanjiKey = ""
         mService.clearCandidatesView()
-        if (mService.currentInputConnection.getSelectedText(0).isNullOrEmpty()) {
-            mService.currentInputConnection.setComposingText(SpannableString(""), 1)
+        // currentInputConnection はプラットフォーム型で null 安全が効かない。
+        // onFinishInput() 直後などは null になり得るので、無い場合は何もしない。
+        val ic = mService.currentInputConnection
+        if (ic != null && ic.getSelectedText(0).isNullOrEmpty()) {
+            ic.setComposingText(SpannableString(""), 1)
             // SpannableStringしないと BaseInputConnection の replaceTextInternal() で
             // SpannableStringBuilder SPAN_EXCLUSIVE_EXCLUSIVE spans cannot have a zero length
             // というエラーを出してしまう
         }
         mComposingText.setLength(0)
+    }
+
+    /**
+     * 確認待ち（「削除? (y/N)」）は入力欄をまたいで残してはいけない。
+     * 状態は object（プロセス共有）なので、セッション開始・確定時に必ず捨てる。
+     */
+    private fun clearPendingConfirmation() {
+        listOf(
+                SKKChooseState,
+                SKKEmojiState,
+                SKKKanjiState,
+                SKKNarrowingState,
+                SKKOkuriganaState,
+        ).forEach { state ->
+            state.pendingLambda = null
+            state.oldComposingText = ""
+        }
     }
 
     internal fun changeInputMode(keyCode: Int): Boolean {

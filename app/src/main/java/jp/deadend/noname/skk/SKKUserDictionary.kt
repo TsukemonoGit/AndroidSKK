@@ -63,38 +63,39 @@ private constructor(
 
     // B14修正: mOldKey/mOldValue の読み書きを safeRun 内に統合
     fun addEntry(key: String, value: String, okurigana: String) {
-        val oldVal = mBTree?.let { it.find(key) }
-
-        val newVal =
-                oldVal?.let { getEntry(key, it) }.let { entry ->
-                    if (entry == null)
-                            "/$value/" +
-                                    if (okurigana.isNotEmpty()) "[$okurigana/$value/]/" else ""
-                    else {
-                        val candidates =
-                                listOf(value).plus(entry.candidates).distinctBy { candidate ->
-                                    candidate.takeWhile { it != ';' } // 注釈は無視して一致判定する
-                                }
-
-                        val okuriganaBlocks =
-                                (if (okurigana.isEmpty()) listOf() else listOf(okurigana to value))
-                                        .plus(entry.okuriganaBlocks)
-                                        .distinctBy { pair ->
-                                            pair.first to pair.second.takeWhile { it != ';' }
-                                        }
-
-                        candidates.fold("/") { acc, str -> "$acc$str/" } +
-                                okuriganaBlocks.fold("") { acc, pair ->
-                                    "$acc[${pair.first}/${pair.second}/]/"
-                                }
-                    }
-                }
-
+        // 読み取り(find)も同じロック内で行う。
+        // 外で読むと、直後に他スレッドの insert/commit が入った場合に
+        // 古い値を元に新しい値を組み立ててしまう。
         safeRun {
-            val oldKey = key
-            val oldValue = oldVal.orEmpty()
-            mOldKey = oldKey
-            mOldValue = oldValue
+            val oldVal = mBTree?.find(key)
+
+            val newVal =
+                    oldVal?.let { getEntry(key, it) }.let { entry ->
+                        if (entry == null)
+                                "/$value/" +
+                                        if (okurigana.isNotEmpty()) "[$okurigana/$value/]/" else ""
+                        else {
+                            val candidates =
+                                    listOf(value).plus(entry.candidates).distinctBy { candidate ->
+                                        candidate.takeWhile { it != ';' } // 注釈は無視して一致判定する
+                                    }
+
+                            val okuriganaBlocks =
+                                    (if (okurigana.isEmpty()) listOf() else listOf(okurigana to value))
+                                            .plus(entry.okuriganaBlocks)
+                                            .distinctBy { pair ->
+                                                pair.first to pair.second.takeWhile { it != ';' }
+                                            }
+
+                            candidates.fold("/") { acc, str -> "$acc$str/" } +
+                                    okuriganaBlocks.fold("") { acc, pair ->
+                                        "$acc[${pair.first}/${pair.second}/]/"
+                                    }
+                        }
+                    }
+
+            mOldKey = key
+            mOldValue = oldVal.orEmpty()
             mBTree?.insert(key, newVal, true)
             mRecMan?.commit()
         }
@@ -102,13 +103,13 @@ private constructor(
 
     // B15修正: 送りブロックを削除しても候補が残っている場合はエントリを維持
     fun removeEntry(key: String, value: String, okurigana: String) {
-        val entry =
-                getEntry(key)
-                        ?: getEntry(
-                                // 「だい4かい」がなければ「だい#かい」を削除する
-                                key.replace(Regex("\\d+(\\.\\d+)?"), "#")
-                        )
-                                ?: return
+        // 実際に存在するキーを 1 度だけ解決し、読み書きで同じキーを使う。
+        // (以前は「#」版を読んで元のキーへ書いていたため、削除されずゴミが増えていた)
+        val resolvedKey =
+                if (getEntry(key) != null) key
+                else key.replace(Regex("\\d+(\\.\\d+)?"), "#").takeIf { getEntry(it) != null }
+                        ?: return
+        val entry = getEntry(resolvedKey) ?: return
         val candidates = entry.candidates.toMutableList()
         val okuriganaBlocks = entry.okuriganaBlocks.toMutableList()
         val rawVal = value.takeWhile { it != ';' } // 注釈を無視して探す
@@ -127,21 +128,21 @@ private constructor(
 
         // B15修正: 候補も送りブロックも空になった場合のみ削除
         if (candidates.isEmpty() && okuriganaBlocks.isEmpty()) {
-            replaceEntry(key, "")
+            replaceEntry(resolvedKey, "")
         } else {
             val newVal =
                     candidates.fold("/") { acc, str -> "$acc$str/" } +
                             okuriganaBlocks.fold("") { acc, pair ->
                                 "$acc[${pair.first}/${pair.second}/]/"
                             }
-            replaceEntry(key, newVal)
+            replaceEntry(resolvedKey, newVal)
         }
     }
 
     fun replaceEntry(key: String, value: String) {
         safeRun {
             // ここは再変換と関係ないので mOldKey / mOldValue を更新しない
-            if (value.isEmpty() || Regex("/*").matchEntire(value) != null) {
+            if (value.all { it == '/' }) {
                 mBTree?.remove(key)
             } else {
                 mBTree?.insert(key, value, true)

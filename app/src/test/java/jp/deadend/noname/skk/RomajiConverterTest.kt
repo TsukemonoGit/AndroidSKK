@@ -131,6 +131,15 @@ class RomajiConverterTest {
         assertEquals("カ" to "バ", RomajiConverter.convertLastChar("カハ", LAST_CONVERSION_DAKUTEN))
         assertEquals("カ" to "ヾ", RomajiConverter.convertLastChar("カヽ", LAST_CONVERSION_DAKUTEN))
 
+        // カ行の濁点が全て正しく変換されること（「セ」→「セ」のタイプミス回帰）
+        listOf(
+            "カ" to "ガ", "キ" to "ギ", "ク" to "グ", "ケ" to "ゲ", "コ" to "ゴ",
+            "サ" to "ザ", "シ" to "ジ", "ス" to "ズ", "セ" to "ゼ", "ソ" to "ゾ",
+            "タ" to "ダ", "チ" to "ヂ", "ツ" to "ヅ", "テ" to "デ", "ト" to "ド",
+        ).forEach { (base, voiced) ->
+            assertEquals("" to voiced, RomajiConverter.convertLastChar(base, LAST_CONVERSION_DAKUTEN))
+        }
+
         // LAST_CONVERSION_HANDAKUTEN
         assertEquals("" to "ぱ", RomajiConverter.convertLastChar("は", LAST_CONVERSION_HANDAKUTEN))
         assertEquals("" to "は", RomajiConverter.convertLastChar("ぱ", LAST_CONVERSION_HANDAKUTEN))
