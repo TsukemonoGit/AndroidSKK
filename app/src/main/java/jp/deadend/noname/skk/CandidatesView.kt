@@ -21,13 +21,12 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.Drawable
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.res.ResourcesCompat
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlin.math.ceil
 
 /**
@@ -174,61 +173,65 @@ class CandidatesView(context: Context, attrs: AttributeSet) : View(context, attr
     }
 
     override fun onDraw(canvas: Canvas) {
-        mDrawing = true
         super.onDraw(canvas)
+        // 例外で抜けても mDrawing が true のまま残らないようにする。
+        // (残ると setContents 側の待ちが永久に解けず UI が固まる)
+        mDrawing = true
+        try {
+            val paint = mPaint
+            val touchX = mTouchX
+            val touchY = mTouchY
+            val scrollX = scrollX
+            val scrolled = mScrolled
+            val y = (paint.textSize * (LINE_SCALE - 1) / 2 - paint.ascent()).toInt()
 
-        val paint = mPaint
-        val touchX = mTouchX
-        val touchY = mTouchY
-        val scrollX = scrollX
-        val scrolled = mScrolled
-        val y = (paint.textSize * (LINE_SCALE - 1) / 2 - paint.ascent()).toInt()
+            mCandidateList.forEachIndexed { i, candidate ->
+                paint.color = mColorNormal
+                if (touchX + scrollX >= mWordX[i]
+                    && touchX + scrollX < mWordX[i] + mWordWidth[i]
+                    && touchY in (mWordL[i] * mLineHeight)..<((mWordL[i] + 1) * mLineHeight)
+                    && !scrolled
+                ) {
+                    canvas.translate(mWordX[i].toFloat(), (mWordL[i] * mLineHeight).toFloat())
+                    mSelectionHighlight?.setBounds(0, 0, mWordWidth[i], mLineHeight)
+                    mSelectionHighlight?.draw(canvas)
+                    canvas.translate((-mWordX[i]).toFloat(), (-mWordL[i] * mLineHeight).toFloat())
+                    mSelectedIndex = i
+                }
 
-        mCandidateList.forEachIndexed { i, candidate ->
-            paint.color = mColorNormal
-            if (touchX + scrollX >= mWordX[i]
-                && touchX + scrollX < mWordX[i] + mWordWidth[i]
-                && touchY in (mWordL[i] * mLineHeight)..<((mWordL[i] + 1) * mLineHeight)
-                && !scrolled
-            ) {
-                canvas.translate(mWordX[i].toFloat(), (mWordL[i] * mLineHeight).toFloat())
-                mSelectionHighlight?.setBounds(0, 0, mWordWidth[i], mLineHeight)
-                mSelectionHighlight?.draw(canvas)
-                canvas.translate((-mWordX[i]).toFloat(), (-mWordL[i] * mLineHeight).toFloat())
-                mSelectedIndex = i
-            }
-
-            if (i == mChosenIndex) {
-                paint.isFakeBoldText = true
-                paint.color = mColorRecommended
-            } else {
+                if (i == mChosenIndex) {
+                    paint.isFakeBoldText = true
+                    paint.color = mColorRecommended
+                } else {
+                    paint.color = mColorOther
+                }
+                if (skkPrefs.originalColor) { // 高コントラストテキストの設定を無視
+                    paint.getTextPath(
+                        candidate, 0, candidate.length,
+                        (mWordX[i] + X_GAP).toFloat(), (y + mWordL[i] * mLineHeight).toFloat(),
+                        mTextPath
+                    )
+                    canvas.drawPath(mTextPath, paint)
+                } else {
+                    canvas.drawText(
+                        candidate,
+                        (mWordX[i] + X_GAP).toFloat(), (y + mWordL[i] * mLineHeight).toFloat(),
+                        paint
+                    )
+                }
                 paint.color = mColorOther
-            }
-            if (skkPrefs.originalColor) { // 高コントラストテキストの設定を無視
-                paint.getTextPath(
-                    candidate, 0, candidate.length,
-                    (mWordX[i] + X_GAP).toFloat(), (y + mWordL[i] * mLineHeight).toFloat(),
-                    mTextPath
-                )
-                canvas.drawPath(mTextPath, paint)
-            } else {
-                canvas.drawText(
-                    candidate,
-                    (mWordX[i] + X_GAP).toFloat(), (y + mWordL[i] * mLineHeight).toFloat(),
+                canvas.drawLine(
+                    mWordX[i] + mWordWidth[i] + 0.5f, (mWordL[i] + 0f) * mLineHeight + 1f,
+                    mWordX[i] + mWordWidth[i] + 0.5f, (mWordL[i] + 1f) * mLineHeight - 1f,
                     paint
                 )
+                paint.isFakeBoldText = false
             }
-            paint.color = mColorOther
-            canvas.drawLine(
-                mWordX[i] + mWordWidth[i] + 0.5f, (mWordL[i] + 0f) * mLineHeight + 1f,
-                mWordX[i] + mWordWidth[i] + 0.5f, (mWordL[i] + 1f) * mLineHeight - 1f,
-                paint
-            )
-            paint.isFakeBoldText = false
-        }
 
-        if (scrolled && mTargetScrollX != getScrollX()) scrollToTarget()
-        mDrawing = false
+            if (scrolled && mTargetScrollX != getScrollX()) scrollToTarget()
+        } finally {
+            mDrawing = false
+        }
     }
 
     private fun scrollToTarget() {
@@ -256,61 +259,64 @@ class CandidatesView(context: Context, attrs: AttributeSet) : View(context, attr
     }
 
     fun setContents(list: List<String>?, kanjiKey: String) {
-        runBlocking {
-            while (mDrawing) delay(50)
-            mCandidateList.clear()
-            list?.take(MAX_CANDIDATES)?.forEach { str ->
-                str.indexOf(";").let { semicolon ->
-                    if (semicolon == -1) {
-                        processConcatAndMore(str, kanjiKey)
-                    } else {
-                        processConcatAndMore(str.take(semicolon), kanjiKey) +
-                                ";" +
-                                processConcatAndMore(str.substring(semicolon + 1, str.length), "#")
-                    }.let {
-                        mCandidateList.add(it)
-                    }
-                }
-            }
-            scrollTo(0, 0)
-            mScrollX = 0
-            mTargetScrollX = 0
-            mTouchX = OUT_OF_BOUNDS
-            mSelectedIndex = -1
-            mChosenIndex = 0
-
-            // Compute the total width
-            var lineN = 0
-            var lineX = 0
-            var lineW = 0
-            var totalLineW = 0
-            mTotalWidth = mCandidateList.map { candidate ->
-                mPaint.measureText(candidate).coerceAtLeast(mLineHeight * 0.7f) + X_GAP * 2
-            }.foldIndexed(0) { i, _, wordWidth ->
-                // 改行
-                if (lineW != 0 && lineW + wordWidth > width) {
-                    lineN = (lineN + 1) % mContainer.lines
-                    if (lineN == 0) {
-                        // width より長いエントリがあるときはハミ出た部分だけ次画面として
-                        // width 単位でのスクロールからズレのないようにする
-                        lineX += ceil(totalLineW / width.toDouble()).toInt() * width
-                        totalLineW = 0
-                    }
-                    lineW = 0
-                }
-
-                // 登録
-                mWordWidth[i] = wordWidth.toInt()
-                mWordX[i] = lineX + lineW
-                mWordL[i] = lineN
-                lineW += wordWidth.toInt()
-                totalLineW = lineW.coerceAtLeast(totalLineW)
-                lineX + totalLineW
-            }
-
-            setScrollButtonsEnabled(0)
-            invalidate()
+        // 描画中のリスト書き換えを避ける。UI スレッド以外から呼ばれた場合は
+        // post して UI スレッドで実行する（runBlocking で待たない）。
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            post { setContents(list, kanjiKey) }
+            return
         }
+        mCandidateList.clear()
+        list?.take(MAX_CANDIDATES)?.forEach { str ->
+            str.indexOf(";").let { semicolon ->
+                if (semicolon == -1) {
+                    processConcatAndMore(str, kanjiKey)
+                } else {
+                    processConcatAndMore(str.take(semicolon), kanjiKey) +
+                            ";" +
+                            processConcatAndMore(str.substring(semicolon + 1, str.length), "#")
+                }.let {
+                    mCandidateList.add(it)
+                }
+            }
+        }
+        scrollTo(0, 0)
+        mScrollX = 0
+        mTargetScrollX = 0
+        mTouchX = OUT_OF_BOUNDS
+        mSelectedIndex = -1
+        mChosenIndex = 0
+
+        // Compute the total width
+        var lineN = 0
+        var lineX = 0
+        var lineW = 0
+        var totalLineW = 0
+        mTotalWidth = mCandidateList.map { candidate ->
+            mPaint.measureText(candidate).coerceAtLeast(mLineHeight * 0.7f) + X_GAP * 2
+        }.foldIndexed(0) { i, _, wordWidth ->
+            // 改行
+            if (lineW != 0 && lineW + wordWidth > width) {
+                lineN = (lineN + 1) % mContainer.lines
+                if (lineN == 0) {
+                    // width より長いエントリがあるときはハミ出た部分だけ次画面として
+                    // width 単位でのスクロールからズレのないようにする
+                    lineX += ceil(totalLineW / width.toDouble()).toInt() * width
+                    totalLineW = 0
+                }
+                lineW = 0
+            }
+
+            // 登録
+            mWordWidth[i] = wordWidth.toInt()
+            mWordX[i] = lineX + lineW
+            mWordL[i] = lineN
+            lineW += wordWidth.toInt()
+            totalLineW = lineW.coerceAtLeast(totalLineW)
+            lineX + totalLineW
+        }
+
+        setScrollButtonsEnabled(0)
+        invalidate()
     }
 
 //    fun getContent(index: Int) = mCandidateList.getOrElse(index) { "" }

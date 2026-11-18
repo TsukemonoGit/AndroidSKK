@@ -1507,20 +1507,17 @@ class SKKService : InputMethodService() {
                                 "ユーザー辞書/${getString(R.string.dict_name_user)}/"
                         )
         dLog("dict pref: $prefVal")
-        if (!prefVal.isNullOrEmpty()) {
-            val vals = prefVal.split("/").dropLastWhile { it.isEmpty() }
-            for (i in 1 until vals.size step 2) {
-                when (vals[i]) {
-                    getString(R.string.dict_name_user) -> mUserDict?.let { result.add(it) }
-                    // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
-                    else ->
-                            SKKDictionary.newInstance(
-                                            dd + "/" + vals[i],
-                                            getString(R.string.btree_name)
-                                    )
-                                    ?.also { result.add(it) }
-                                    ?: dLog("failed to open ${vals[i]}")
-                }
+        parseDictOrder(prefVal).forEach { entry ->
+            when (entry.name) {
+                getString(R.string.dict_name_user) -> mUserDict?.let { result.add(it) }
+                // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
+                else ->
+                        SKKDictionary.newInstance(
+                                        dd + "/" + entry.name,
+                                        getString(R.string.btree_name)
+                                )
+                                ?.also { result.add(it) }
+                                ?: dLog("failed to open ${entry.name}")
             }
         }
 

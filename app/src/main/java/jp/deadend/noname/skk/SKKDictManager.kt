@@ -15,6 +15,7 @@ import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -104,12 +105,8 @@ class SKKDictManager : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         val dictList =
-                skkPrefs.dictOrder // インストール済み辞書をまず列挙
-                        .split("/")
-                        .dropLastWhile { it.isEmpty() }
-                        .asSequence()
-                        .chunked(2)
-                        .map { Tuple(it[0], it[1]) }
+                parseDictOrder(skkPrefs.dictOrder) // インストール済み辞書をまず列挙
+                        .map { Tuple(it.label, it.name) }
                         .plus(commonDictList) // 一般的な辞書を追加
                         .distinctBy { it.value.removePrefix("/") } // 重複を消去
                         .toMutableList()
@@ -267,30 +264,45 @@ class SKKDictManager : AppCompatActivity() {
                     override fun onPositiveClick() {
                         // B19修正: cancelAndJoin の後でネットワークアクセスしないよう、
                         // ダウンロード後にプログレスをクリーンに終了する
-                        MainScope().launch(Dispatchers.IO) {
+                        // MainScope() はライフサイクルに追従しないため lifecycleScope を使う。
+                        lifecycleScope.launch(Dispatchers.IO) {
                             val item = mDictList.getOrNull(position) ?: return@launch
-                            if (path.exists()) {
-                                deleteFile(path.name)
-                            }
-                            URL(
-                                            when (type) {
-                                                "lisplike" ->
-                                                        "https://raw.githubusercontent.com/tamo/AndroidSKK/refs/heads/master/SKK-JISYO.${type}.gz"
-                                                else ->
-                                                        "https://tamo.github.io/dict/SKK-JISYO.${type}.gz"
-                                            }
-                                    )
-                                    .openStream()
-                                    .use { us ->
-                                        FileOutputStream(path).use { fs -> us.copyTo(fs) }
+                            try {
+                                if (path.exists()) {
+                                    deleteFile(path.name)
+                                }
+                                URL(
+                                                when (type) {
+                                                    "lisplike" ->
+                                                            "https://raw.githubusercontent.com/tamo/AndroidSKK/refs/heads/master/SKK-JISYO.${type}.gz"
+                                                    else ->
+                                                            "https://tamo.github.io/dict/SKK-JISYO.${type}.gz"
+                                                }
+                                        )
+                                        .openStream()
+                                        .use { us ->
+                                            FileOutputStream(path).use { fs -> us.copyTo(fs) }
+                                        }
+                                withContext(Dispatchers.Main) {
+                                    val newList = mDictList.toMutableList()
+                                    newList[position] = item
+                                    mAdapter.submitList(newList)
+                                    mDictList = newList
+                                }
+                                withContext(Dispatchers.Main) { loadCommonDict(path, position) }
+                            } catch (e: Exception) {
+                                // オフライン・404・容量不足などで例外が起きてもプロセスを落とさない
+                                Log.e("SKK", "downloadDict($type) failed: ${e.message}", e)
+                                if (path.exists()) path.delete()
+                                withContext(Dispatchers.Main) {
+                                    if (!isFinishing && !isDestroyed) {
+                                        SimpleMessageDialogFragment.newInstance(
+                                                        getString(R.string.error_download_dict, type)
+                                                )
+                                                .show(supportFragmentManager, "dialog")
                                     }
-                            withContext(Dispatchers.Main) {
-                                val newList = mDictList.toMutableList()
-                                newList[position] = item
-                                mAdapter.submitList(newList)
-                                mDictList = newList
+                                }
                             }
-                            withContext(Dispatchers.Main) { loadCommonDict(path, position) }
                         }
                     }
 

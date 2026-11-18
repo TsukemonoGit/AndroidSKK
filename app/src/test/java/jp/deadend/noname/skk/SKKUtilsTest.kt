@@ -60,6 +60,29 @@ class SKKUtilsTest {
     }
 
     @Test
+    fun testParseDictOrder() {
+        assertEquals(
+            listOf(DictOrderEntry("ユーザー辞書", "skk_userdict")),
+            parseDictOrder("ユーザー辞書/skk_userdict/")
+        )
+        assertEquals(
+            listOf(
+                DictOrderEntry("SKK ada", "skk_dict_ada"),
+                DictOrderEntry("SKK base", "skk_dict_base"),
+            ),
+            parseDictOrder("SKK ada/skk_dict_ada/SKK base/skk_dict_base/")
+        )
+        // 末尾にラベルだけ残った壊れた設定でも落ちない
+        assertEquals(
+            listOf(DictOrderEntry("SKK ada", "skk_dict_ada")),
+            parseDictOrder("SKK ada/skk_dict_ada/orphan/")
+        )
+        assertEquals(emptyList<DictOrderEntry>(), parseDictOrder(""))
+        assertEquals(emptyList<DictOrderEntry>(), parseDictOrder(null))
+        assertEquals(emptyList<DictOrderEntry>(), parseDictOrder("/"))
+    }
+
+    @Test
     fun testUnzipFile() {
         val outDir = Files.createTempDirectory("skk-unzip").toFile()
         try {

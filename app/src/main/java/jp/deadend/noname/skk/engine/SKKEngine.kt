@@ -141,7 +141,9 @@ class SKKEngine(
     fun closeUserDict() {
         mUserDict.close()
         mASCIIDict.close()
-        mHistoryDict?.close()
+        // 履歴辞書はプロセス内シングルトン。IME のサービス終了に合わせて閉じると、
+        // 履歴ツールが持っている参照が無効になるため、ここでは閉じない。
+        // (履歴は小さく、プロセス終了時に OS が後始末する)
     }
 
     fun processKey(keyCode: Int) {

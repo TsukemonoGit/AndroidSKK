@@ -328,6 +328,31 @@ fun dLog(msg: String) {
     if (BuildConfig.DEBUG) android.util.Log.d("SKK", msg)
 }
 
+/** 辞書順設定の 1 エントリ。設定上は「ラベル/ファイル名/」を繰り返した 1 本の文字列。 */
+internal data class DictOrderEntry(val label: String, val name: String)
+
+/**
+ * 辞書順設定をパースする。
+ * 壊れた設定（要素数が奇数・空など）でも例外を投げず、読める範囲だけ返す。
+ * 以前は呼び出し側ごとに split/chunked しており、奇数要素で IndexOutOfBounds になった。
+ */
+internal fun parseDictOrder(value: String?): List<DictOrderEntry> {
+    if (value.isNullOrEmpty()) return emptyList()
+
+    val tokens = value.split("/").dropLastWhile { it.isEmpty() }
+    val result = mutableListOf<DictOrderEntry>()
+    var i = 0
+    while (i + 1 < tokens.size) {
+        val label = tokens[i]
+        val name = tokens[i + 1]
+        if (name.isNotEmpty()) {
+            result.add(DictOrderEntry(label, name))
+        }
+        i += 2
+    }
+    return result
+}
+
 fun getFileNameFromUri(context: Context, uri: Uri): String? {
     val fileName: String?
     when (uri.scheme) {
