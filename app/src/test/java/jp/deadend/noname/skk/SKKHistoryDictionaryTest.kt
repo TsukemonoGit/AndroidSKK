@@ -51,8 +51,36 @@ class SKKHistoryDictionaryTest {
     @Test
     fun testMergeDiskSnapshotRespectsPendingClear() {
         val disk = mapOf("a" to "/a/")
-        val merged = mergeHistoryDiskSnapshot(disk, emptyMap(), emptySet(), true)
-        assertEquals(0, merged.size)
+        val current = mapOf("new" to "/new/")
+        val merged = mergeHistoryDiskSnapshot(disk, current, emptySet(), true)
+        // 消去前のディスクは無視するが、消去中に追加された履歴は残す
+        assertEquals(mapOf("new" to "/new/"), merged)
+    }
+
+    @Test
+    fun testRebuildDoesNotResurrectHistoryRemovedDuringRebuild() {
+        dict = newDict()
+        dict!!.addHistory("かんじ", "漢字")
+        runBlocking { dict!!.awaitBackground() }
+
+        val removalStarted = java.util.concurrent.CountDownLatch(1)
+        dict!!.testHookAfterDiskRead = {
+            // ディスク読み取り後・マージ前に削除を開始する。
+            // 旧実装は読み取りとマージが別ロックだったため、この間に削除が
+            // コミットまで完了し、古いスナップショットから履歴が復活していた。
+            Thread {
+                        dict!!.removeHistory("かんじ")
+                        removalStarted.countDown()
+                    }
+                    .start()
+            removalStarted.await()
+            Thread.sleep(100) // コミットが進めるならこの間に進む
+        }
+        dict!!.rebuildCacheForTest()
+        dict!!.testHookAfterDiskRead = null
+        runBlocking { dict!!.awaitBackground() }
+
+        assertNull(dict!!.getHistory("かんじ"))
     }
 
     @Test

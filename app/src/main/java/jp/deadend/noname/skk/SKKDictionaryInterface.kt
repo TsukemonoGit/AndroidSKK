@@ -208,8 +208,8 @@ interface SKKDictionaryInterface {
                 }
             }
         } catch (e: IOException) {
+            // 辞書 1 冊の破損で入力全体を止めない。読めた分だけ返す。
             Log.e("SKK", "Error in findKeys(): $e")
-            throw RuntimeException(e)
         }
         if (mIsASCII) {
             list.sortByDescending { it.third }

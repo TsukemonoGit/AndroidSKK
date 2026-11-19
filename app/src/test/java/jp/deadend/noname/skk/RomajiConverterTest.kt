@@ -144,7 +144,6 @@ class RomajiConverterTest {
         assertEquals("" to "ぱ", RomajiConverter.convertLastChar("は", LAST_CONVERSION_HANDAKUTEN))
         assertEquals("" to "は", RomajiConverter.convertLastChar("ぱ", LAST_CONVERSION_HANDAKUTEN))
         assertEquals("" to "パ", RomajiConverter.convertLastChar("ハ", LAST_CONVERSION_HANDAKUTEN))
-
         // LAST_CONVERSION_TRANS
         assertEquals("" to "ぁ", RomajiConverter.convertLastChar("あ", LAST_CONVERSION_TRANS))
         assertEquals("" to "あ", RomajiConverter.convertLastChar("ぁ", LAST_CONVERSION_TRANS))
@@ -161,6 +160,8 @@ class RomajiConverterTest {
         assertEquals("あ" to "a", RomajiConverter.convertLastChar("あa", LAST_CONVERSION_SHIFT))
         assertEquals("あ" to "あ", RomajiConverter.convertLastChar("ああ", LAST_CONVERSION_SHIFT))
         assertEquals("あ" to "漢", RomajiConverter.convertLastChar("あ漢", LAST_CONVERSION_SHIFT))
+        // 未知の変換種別でも例外を投げず、そのまま返す
+        assertEquals("" to "か", RomajiConverter.convertLastChar("か", "unknown"))
     }
 
     @Test

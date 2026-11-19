@@ -1,6 +1,10 @@
 package jp.deadend.noname.skk
 
 import androidx.test.core.app.ApplicationProvider
+import android.content.Intent
+import android.view.KeyEvent
+import jp.deadend.noname.skk.engine.SKKHiraganaState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -39,5 +43,21 @@ class SKKServiceLifecycleTest {
     @Test
     fun testApplicationContextIsAvailable() {
         assertNotNull(ApplicationProvider.getApplicationContext<SKKApplication>())
+    }
+
+    @Test
+    fun testUninitializedEngineDoesNotCrashLifecycle() {
+        val service = Robolectric.buildService(SKKService::class.java).create().get()
+        // 辞書オープン失敗で onCreate が早期 return した状態を再現する
+        val f = SKKService::class.java.getDeclaredField("mEngine")
+        f.isAccessible = true
+        f.set(service, null)
+
+        assertEquals(SKKHiraganaState, service.engineState)
+        service.onFinishInput()
+        service.onKeyDown(KeyEvent.KEYCODE_A, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A))
+
+        val intent = Intent().putExtra(SKKService.KEY_COMMAND, SKKService.COMMAND_CLOSE_USER_DICT)
+        service.onStartCommand(intent, 0, 1)
     }
 }

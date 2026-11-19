@@ -80,7 +80,7 @@ object SKKOkuriganaState : SKKConfirmingState {
                 } else {
                     if (!RomajiConverter.isIntermediateRomaji(mComposing.toString())) {
                         mComposing.setLength(0) // これまでの composing は typo とみなしてやり直す
-                        mKanjiKey.deleteCharAt(mKanjiKey.lastIndex)
+                        if (mKanjiKey.isNotEmpty()) mKanjiKey.deleteCharAt(mKanjiKey.lastIndex)
                         changeState(SKKKanjiState)
                         SKKKanjiState.processKey(context, Character.toUpperCase(keyCode))
                         return
@@ -96,7 +96,7 @@ object SKKOkuriganaState : SKKConfirmingState {
     override fun afterBackspace(context: SKKEngine) {
         context.apply {
             mComposing.setLength(0) // 元から空のはず
-            mKanjiKey.deleteCharAt(mKanjiKey.lastIndex)
+            if (mKanjiKey.isNotEmpty()) mKanjiKey.deleteCharAt(mKanjiKey.lastIndex)
             if (mOkurigana.isNotEmpty()) mKanjiKey.append(mOkurigana) // 「っ」とか
             mOkurigana = ""
             setComposingTextSKK(mKanjiKey)

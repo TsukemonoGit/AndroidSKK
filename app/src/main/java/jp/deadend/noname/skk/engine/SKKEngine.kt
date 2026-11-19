@@ -370,7 +370,9 @@ class SKKEngine(
             SKKChooseState, SKKNarrowingState -> pickCandidate(index, unregister = unregister)
             SKKAbbrevState, SKKKanjiState, SKKASCIIState, SKKEmojiState, SKKOkuriganaState ->
                     pickSuggestion(index, unregister)
-            else -> throw RuntimeException("cannot pick candidate in $state")
+            // IME は落ちないことを優先する。候補ビューのタップで到達し得る経路なので
+            // 例外ではなくログ＋無視にする。
+            else -> dLog("cannot pick candidate in $state")
         }
     }
 
@@ -914,10 +916,10 @@ class SKKEngine(
                             SKKKatakanaState -> hiragana2katakana(it, reversed = true).orEmpty()
                             SKKHanKanaState -> zenkaku2hankaku(hiragana2katakana(it)).orEmpty()
                             // 登録した内容が半角化できる文字を含んでいる場合は、やりすぎになるが無視
-                            else ->
-                                    throw RuntimeException(
-                                            "kanaState: $kanaStateBeforeRegistration"
-                                    )
+                            else -> {
+                                dLog("registration: unexpected kanaState: $kanaStateBeforeRegistration")
+                                it
+                            }
                         }
                 )
             }
@@ -1195,7 +1197,10 @@ class SKKEngine(
                     SKKHiraganaState -> concat
                     SKKKatakanaState -> hiragana2katakana(concat, reversed = true).orEmpty()
                     SKKHanKanaState -> zenkaku2hankaku(hiragana2katakana(concat)).orEmpty()
-                    else -> throw RuntimeException("kanaState: $kanaState")
+                    else -> {
+                        dLog("pickCandidate: unexpected kanaState: $kanaState")
+                        concat
+                    }
                 } // カナかなは互換性あるけど半角カナと全角かなは互換性ない感覚があるので reverse しない
         commitTextSKK(text)
         if (mRegistrationStack.isEmpty()) {

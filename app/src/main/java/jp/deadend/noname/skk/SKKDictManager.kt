@@ -295,11 +295,24 @@ class SKKDictManager : AppCompatActivity() {
                                 Log.e("SKK", "downloadDict($type) failed: ${e.message}", e)
                                 if (path.exists()) path.delete()
                                 withContext(Dispatchers.Main) {
-                                    if (!isFinishing && !isDestroyed) {
-                                        SimpleMessageDialogFragment.newInstance(
-                                                        getString(R.string.error_download_dict, type)
-                                                )
-                                                .show(supportFragmentManager, "dialog")
+                                    // 画面を離れた直後は状態が保存済みで show() が
+                                    // IllegalStateException を投げる。catch の外へ抜けて
+                                    // アプリが落ちるため、表示可能なときだけ出す。
+                                    if (!isFinishing &&
+                                                    !isDestroyed &&
+                                                    !supportFragmentManager.isStateSaved
+                                    ) {
+                                        try {
+                                            SimpleMessageDialogFragment.newInstance(
+                                                            getString(
+                                                                    R.string.error_download_dict,
+                                                                    type
+                                                            )
+                                                    )
+                                                    .show(supportFragmentManager, "dialog")
+                                        } catch (e: IllegalStateException) {
+                                            Log.e("SKK", "failed to show download error", e)
+                                        }
                                     }
                                 }
                             }
