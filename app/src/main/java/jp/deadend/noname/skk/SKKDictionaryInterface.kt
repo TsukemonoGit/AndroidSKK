@@ -4,7 +4,6 @@ import android.util.Log
 import jdbm.RecordManager
 import jdbm.btree.BTree
 import jdbm.helper.Tuple
-import jdbm.helper.TupleBrowser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.isActive
@@ -160,51 +159,54 @@ interface SKKDictionaryInterface {
     suspend fun findKeys(scope: CoroutineScope, rawKey: String): List<Pair<String, String>> {
         val key = katakana2hiragana(rawKey) ?: return listOf()
         val list = mutableListOf<Triple<String, String, Int>>()
-        val tuple = Tuple<String, String>()
-        val browser: TupleBrowser<String, String>
         val topFreq = ArrayList<Int>()
 
+        // JDBM の BTree はスレッドセーフではない。browse 中に insert/remove が
+        // 走らないよう、書き込みと同じ mutex で直列化する。
         try {
-            browser = mBTree?.browse(key) ?: return listOf()
+            mMutex.withLock {
+                val tuple = Tuple<String, String>()
+                val browser = mBTree?.browse(key) ?: return listOf()
 
-            // 絵文字は1500ほどあるし CandidatesView の行数が可変になったので多めが良さそう
-            while (list.size < if (mIsASCII) 1500 else 15) {
-                if (!scope.isActive) {
-                    throw CancellationException()
-                }
-
-                if (!browser.getNext(tuple)) break
-                val str = tuple.key
-                when {
-                    !str.startsWith(key) -> break
-
-                    mIsASCII -> {
-                        tuple.value
-                            .split('/')
-                            .filter { it.isNotEmpty() }
-                            .zipWithNext()
-                            .filterIndexed { index, _ -> index % 2 == 0 }
-                            .forEach {
-                                val freq = it.first.toInt() +
-                                        if (str == key) 50 else 0 // 完全一致を優先
-                                if (freq !in topFreq) {
-                                    topFreq.apply {
-                                        add(freq)
-                                        sortDescending()
-                                        while (size > 5) removeAt(lastIndex)
-                                    }
-                                }
-                                if (freq >= topFreq.last()) { // 頻度が5位に入らなければだめ
-                                    list.add(Triple(str, it.second, freq))
-                                }
-                            }
-                        continue
+                // 絵文字は1500ほどあるし CandidatesView の行数が可変になったので多めが良さそう
+                while (list.size < if (mIsASCII) 1500 else 15) {
+                    if (!scope.isActive) {
+                        throw CancellationException()
                     }
 
-                    !isAlphabet(str.first().code) && isAlphabet(str.last().code)
-                        -> continue // 送りありエントリは飛ばす
+                    if (!browser.getNext(tuple)) break
+                    val str = tuple.key
+                    when {
+                        !str.startsWith(key) -> break
 
-                    else -> list.add(Triple(str, str, 0))
+                        mIsASCII -> {
+                            tuple.value
+                                .split('/')
+                                .filter { it.isNotEmpty() }
+                                .zipWithNext()
+                                .filterIndexed { index, _ -> index % 2 == 0 }
+                                .forEach {
+                                    val freq = it.first.toInt() +
+                                            if (str == key) 50 else 0 // 完全一致を優先
+                                    if (freq !in topFreq) {
+                                        topFreq.apply {
+                                            add(freq)
+                                            sortDescending()
+                                            while (size > 5) removeAt(lastIndex)
+                                        }
+                                    }
+                                    if (freq >= topFreq.last()) { // 頻度が5位に入らなければだめ
+                                        list.add(Triple(str, it.second, freq))
+                                    }
+                                }
+                            continue
+                        }
+
+                        !isAlphabet(str.first().code) && isAlphabet(str.last().code)
+                            -> continue // 送りありエントリは飛ばす
+
+                        else -> list.add(Triple(str, str, 0))
+                    }
                 }
             }
         } catch (e: IOException) {

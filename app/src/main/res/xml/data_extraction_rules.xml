@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 31 以降のバックアップ／端末間転送の対象。
+  JDBM の .db / .lg はオープン中は一貫性がなく、変換履歴は入力内容そのものなので
+  自動バックアップから除外する。辞書はアプリ内で再生成・再ダウンロードできる。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="skk_historydict.db" />
+        <exclude domain="file" path="skk_historydict.lg" />
+        <exclude domain="file" path="skk_historydict.db.bak" />
+        <exclude domain="file" path="skk_userdict.db" />
+        <exclude domain="file" path="skk_userdict.lg" />
+        <exclude domain="file" path="skk_userdict.db.bak" />
+        <exclude domain="file" path="skk_asciidict.db" />
+        <exclude domain="file" path="skk_asciidict.lg" />
+        <exclude domain="file" path="skk_asciidict.db.bak" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="skk_historydict.db" />
+        <exclude domain="file" path="skk_historydict.lg" />
+        <exclude domain="file" path="skk_historydict.db.bak" />
+        <exclude domain="file" path="skk_userdict.db" />
+        <exclude domain="file" path="skk_userdict.lg" />
+        <exclude domain="file" path="skk_userdict.db.bak" />
+        <exclude domain="file" path="skk_asciidict.db" />
+        <exclude domain="file" path="skk_asciidict.lg" />
+        <exclude domain="file" path="skk_asciidict.db.bak" />
+    </device-transfer>
+</data-extraction-rules>

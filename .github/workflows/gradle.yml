@@ -28,6 +28,9 @@ jobs:
     - name: Run unit tests
       run: ./gradlew testDebugUnitTest
 
+    - name: Run lint
+      run: ./gradlew lintDebug
+
     - name: Build with Gradle Wrapper
       run: ./gradlew assembleDebug
 

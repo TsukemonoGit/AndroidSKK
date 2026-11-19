@@ -17,6 +17,8 @@
     <application
         android:name=".SKKApplication"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/icon"
         android:label="@string/ime_name"
         android:supportsRtl="false">

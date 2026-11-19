@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 30 以前の自動バックアップ対象。
+  変換履歴は入力内容そのものなので除外する。JDBM の .db / .lg は
+  オープン中は一貫性がないため、辞書もバックアップしない。
+-->
+<full-backup-content>
+    <exclude domain="file" path="skk_historydict.db" />
+    <exclude domain="file" path="skk_historydict.lg" />
+    <exclude domain="file" path="skk_historydict.db.bak" />
+    <exclude domain="file" path="skk_userdict.db" />
+    <exclude domain="file" path="skk_userdict.lg" />
+    <exclude domain="file" path="skk_userdict.db.bak" />
+    <exclude domain="file" path="skk_asciidict.db" />
+    <exclude domain="file" path="skk_asciidict.lg" />
+    <exclude domain="file" path="skk_asciidict.db.bak" />
+</full-backup-content>
