@@ -93,7 +93,7 @@ object RomajiConverter {
         "ゝ" to "ゞ",
         "ウ" to "ヴ",
         "カ" to "ガ", "キ" to "ギ", "ク" to "グ", "ケ" to "ゲ", "コ" to "ゴ",
-        "サ" to "ザ", "シ" to "ジ", "ス" to "ズ", "セ" to "セ", "ソ" to "ゾ",
+        "サ" to "ザ", "シ" to "ジ", "ス" to "ズ", "セ" to "ゼ", "ソ" to "ゾ",
         "タ" to "ダ", "チ" to "ヂ", "ツ" to "ヅ", "テ" to "デ", "ト" to "ド",
         "ハ" to "バ", "ヒ" to "ビ", "フ" to "ブ", "ヘ" to "ベ", "ホ" to "ボ",
         "ワ" to "ヷ", "ヰ" to "ヸ", "ヱ" to "ヹ", "ヲ" to "ヺ", "ヽ" to "ヾ",
@@ -163,9 +163,14 @@ object RomajiConverter {
         } else if (type == SKKEngine.LAST_CONVERSION_SHIFT && isAlNum(last.code)) {
             last.toString() // 英数SHIFTは全角にしないで使う
         } else {
-            hankaku2zenkaku(last.toString())!!
+            hankaku2zenkaku(last.toString()) ?: last.toString()
         }
-        assert(kana.length == 1)
+        // assert は Android では実行されないため、実際に分岐して安全側に倒す。
+        // 2 文字以上になった場合は「最後の 1 文字だけ変換」せず、そのまま返す。
+        if (kana.length != 1) {
+            dLog("convertLastChar: unexpected kana length: $kana")
+            return first to kana
+        }
 
         val kanaLast = kana.last().code
         if (
@@ -192,7 +197,10 @@ object RomajiConverter {
                 ?: mReversedDakutenMap[kana]                            // 濁点を普通に
                 ?: mReversedSmallKanaMap[kana]                          // 小文字を普通に
             SKKEngine.LAST_CONVERSION_SHIFT -> kana
-            else -> throw IllegalArgumentException("convertLastChar: unknown type $type")
+            else -> {
+                dLog("convertLastChar: unknown type $type")
+                kana
+            }
         } ?: kana)
     }
 

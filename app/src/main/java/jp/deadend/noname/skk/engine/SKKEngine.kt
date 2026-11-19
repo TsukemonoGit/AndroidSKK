@@ -141,7 +141,9 @@ class SKKEngine(
     fun closeUserDict() {
         mUserDict.close()
         mASCIIDict.close()
-        mHistoryDict?.close()
+        // 履歴辞書はプロセス内シングルトン。IME のサービス終了に合わせて閉じると、
+        // 履歴ツールが持っている参照が無効になるため、ここでは閉じない。
+        // (履歴は小さく、プロセス終了時に OS が後始末する)
     }
 
     fun processKey(keyCode: Int) {
@@ -262,6 +264,7 @@ class SKKEngine(
     }
 
     fun resetOnStartInput() {
+        clearPendingConfirmation()
         mComposing.setLength(0)
         mKanjiKey.setLength(0)
         mOkurigana = ""
@@ -367,7 +370,9 @@ class SKKEngine(
             SKKChooseState, SKKNarrowingState -> pickCandidate(index, unregister = unregister)
             SKKAbbrevState, SKKKanjiState, SKKASCIIState, SKKEmojiState, SKKOkuriganaState ->
                     pickSuggestion(index, unregister)
-            else -> throw RuntimeException("cannot pick candidate in $state")
+            // IME は落ちないことを優先する。候補ビューのタップで到達し得る経路なので
+            // 例外ではなくログ＋無視にする。
+            else -> dLog("cannot pick candidate in $state")
         }
     }
 
@@ -911,10 +916,10 @@ class SKKEngine(
                             SKKKatakanaState -> hiragana2katakana(it, reversed = true).orEmpty()
                             SKKHanKanaState -> zenkaku2hankaku(hiragana2katakana(it)).orEmpty()
                             // 登録した内容が半角化できる文字を含んでいる場合は、やりすぎになるが無視
-                            else ->
-                                    throw RuntimeException(
-                                            "kanaState: $kanaStateBeforeRegistration"
-                                    )
+                            else -> {
+                                dLog("registration: unexpected kanaState: $kanaStateBeforeRegistration")
+                                it
+                            }
                         }
                 )
             }
@@ -1192,7 +1197,10 @@ class SKKEngine(
                     SKKHiraganaState -> concat
                     SKKKatakanaState -> hiragana2katakana(concat, reversed = true).orEmpty()
                     SKKHanKanaState -> zenkaku2hankaku(hiragana2katakana(concat)).orEmpty()
-                    else -> throw RuntimeException("kanaState: $kanaState")
+                    else -> {
+                        dLog("pickCandidate: unexpected kanaState: $kanaState")
+                        concat
+                    }
                 } // カナかなは互換性あるけど半角カナと全角かなは互換性ない感覚があるので reverse しない
         commitTextSKK(text)
         if (mRegistrationStack.isEmpty()) {
@@ -1329,19 +1337,40 @@ class SKKEngine(
     }
 
     private fun reset() {
+        clearPendingConfirmation()
         mComposing.setLength(0)
         mKanjiKey.setLength(0)
         mOkurigana = ""
         mCandidateList = null
         mCandidateKanjiKey = ""
         mService.clearCandidatesView()
-        if (mService.currentInputConnection.getSelectedText(0).isNullOrEmpty()) {
-            mService.currentInputConnection.setComposingText(SpannableString(""), 1)
+        // currentInputConnection はプラットフォーム型で null 安全が効かない。
+        // onFinishInput() 直後などは null になり得るので、無い場合は何もしない。
+        val ic = mService.currentInputConnection
+        if (ic != null && ic.getSelectedText(0).isNullOrEmpty()) {
+            ic.setComposingText(SpannableString(""), 1)
             // SpannableStringしないと BaseInputConnection の replaceTextInternal() で
             // SpannableStringBuilder SPAN_EXCLUSIVE_EXCLUSIVE spans cannot have a zero length
             // というエラーを出してしまう
         }
         mComposingText.setLength(0)
+    }
+
+    /**
+     * 確認待ち（「削除? (y/N)」）は入力欄をまたいで残してはいけない。
+     * 状態は object（プロセス共有）なので、セッション開始・確定時に必ず捨てる。
+     */
+    private fun clearPendingConfirmation() {
+        listOf(
+                SKKChooseState,
+                SKKEmojiState,
+                SKKKanjiState,
+                SKKNarrowingState,
+                SKKOkuriganaState,
+        ).forEach { state ->
+            state.pendingLambda = null
+            state.oldComposingText = ""
+        }
     }
 
     internal fun changeInputMode(keyCode: Int): Boolean {

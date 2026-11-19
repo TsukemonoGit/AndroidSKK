@@ -132,7 +132,8 @@ class SKKService : InputMethodService() {
     internal val isFlickWidth: Boolean
         get() = (mInputView != mQwertyInputView && mInputView != mAbbrevKeyboardView)
     internal val isTemporaryView: Boolean
-        get() = (mInputView == mAbbrevKeyboardView || mEngine.state === SKKZenkakuState)
+        get() = (mInputView == mAbbrevKeyboardView ||
+                (engineReady && mEngine.state === SKKZenkakuState))
     internal var leftOffset = 0
 
     // 画面サイズが実際に変わる前に onConfigurationChanged で受け取ってサイズ計算
@@ -149,8 +150,13 @@ class SKKService : InputMethodService() {
     private var mStreamVolume = 0
 
     internal lateinit var mEngine: SKKEngine
+    private val engineReady: Boolean
+        get() = ::mEngine.isInitialized
     internal val engineState: SKKState
         get() {
+            // 辞書オープン失敗時は mEngine が未初期化のままフレームワークの
+            // コールバックが来ることがある。ここで落とさない。
+            if (!engineReady) return SKKHiraganaState
             val rawState = mEngine.state
             return if (rawState === SKKEmojiState) mEngine.oldState else rawState
         }
@@ -162,8 +168,9 @@ class SKKService : InputMethodService() {
     internal val isHiragana: Boolean
         get() = kanaState === SKKHiraganaState
     internal var kanaState: SKKState
-        get() = mEngine.kanaState
+        get() = if (engineReady) mEngine.kanaState else SKKHiraganaState
         set(state) {
+            if (!engineReady) return
             val oldState = kanaState
             mEngine.kanaState = state
             if (oldState != state) {
@@ -173,7 +180,7 @@ class SKKService : InputMethodService() {
             }
         }
     internal val isComposingN
-        get() = mEngine.mComposing.toString() == "n"
+        get() = engineReady && mEngine.mComposing.toString() == "n"
 
     // onKeyDown()でEnterキーのイベントを消費したかどうかのフラグ．onKeyUp()で判定するのに使う
     private var isEnterUsed = false
@@ -190,6 +197,13 @@ class SKKService : InputMethodService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
+        if (!engineReady &&
+                intent?.getStringExtra(KEY_COMMAND) in
+                        listOf(COMMAND_CLOSE_USER_DICT, COMMAND_RELOAD_DICT, COMMAND_READ_PREFS)
+        ) {
+            dLog("ignore command before engine init")
+            return START_NOT_STICKY
+        }
         when (intent?.getStringExtra(KEY_COMMAND)) {
             COMMAND_CLOSE_USER_DICT -> {
                 dLog("commit user dictionary!")
@@ -433,7 +447,9 @@ class SKKService : InputMethodService() {
         val context = applicationContext
         mStickyShift = skkPrefs.useStickyMeta
         mSandS = skkPrefs.useSandS
-        mEngine.setZenkakuPunctuationMarks(skkPrefs.kutoutenType)
+        if (engineReady) {
+            mEngine.setZenkakuPunctuationMarks(skkPrefs.kutoutenType)
+        }
 
         updateInputViewShown()
 
@@ -624,6 +640,10 @@ class SKKService : InputMethodService() {
      */
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
+        if (!engineReady) {
+            super.onStartInput(attribute, restarting)
+            return
+        }
         if (attribute.inputType == InputType.TYPE_NULL) {
             requestHideSelf(0)
             return
@@ -632,8 +652,11 @@ class SKKService : InputMethodService() {
 
         if (!mPendingInput.isNullOrEmpty()) {
             dLog("commiting pending input: $mPendingInput")
-            currentInputConnection.commitText(mPendingInput!!, 1)
-            mPendingInput = null
+            val ic = currentInputConnection
+            if (ic != null) {
+                ic.commitText(mPendingInput!!, 1)
+                mPendingInput = null
+            }
         }
 
         if (mStickyShift) mShiftKey.clearState()
@@ -812,9 +835,17 @@ class SKKService : InputMethodService() {
 
     override fun setCandidatesView(view: View?) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        (view?.parent as? FrameLayout)?.removeView(view)
+        // setCandidatesView は IME 自身が呼ぶ API で、フレームワークから null が来る経路は
+        // 現状ない。ただし View? を受ける以上 null で落ちないようにしておく。
+        // (super.setCandidatesView(null) は ViewGroup.addView(null) で落ちるため、先に返す)
+        if (view == null) {
+            mCandidatesViewContainer = null
+            mCandidatesView = null
+            return
+        }
+        (view.parent as? FrameLayout)?.removeView(view)
         super.setCandidatesView(view)
-        mCandidatesViewContainer = view as CandidatesViewContainer
+        mCandidatesViewContainer = view as? CandidatesViewContainer
     }
 
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
@@ -832,7 +863,7 @@ class SKKService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
         if (mIsEmojiPickerShown) hideEmojiPicker()
-        mEngine.commitComposing()
+        if (engineReady) mEngine.commitComposing()
         super.onFinishInputView(finishingInput)
         hideStatusIcon()
         clearCandidatesView()
@@ -841,7 +872,7 @@ class SKKService : InputMethodService() {
     /** This is called when the user is done editing a field. We can use this to reset our state. */
     override fun onFinishInput() {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        mEngine.commitComposing()
+        if (engineReady) mEngine.commitComposing()
         restorePrevStates()
         super.onFinishInput()
         hideStatusIcon()
@@ -866,11 +897,10 @@ class SKKService : InputMethodService() {
 
     override fun onDestroy() {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        if (instance == null) {
-            dLog("skip onDestroy(): instance is null")
-            return
-        }
-
+        // 以前は instance == null で早期 return していたため、
+        // onCreate が辞書オープンに失敗した場合に super.onDestroy() が呼ばれず、
+        // ウィンドウや SpeechRecognizer の後始末が漏れていた。
+        // クリーンアップは個別にガードし、super は必ず呼ぶ。
         mHandler.removeCallbacksAndMessages(null)
         // B21修正: 辞書オープン失敗時はmEngineが未初期化のためisInitializedチェック
         // 順序の重要: 先にcloseUserDict()で辞書を閉じてからmEngine.close()でスコープをキャンセル。
@@ -882,7 +912,9 @@ class SKKService : InputMethodService() {
             mEngine.close()
         }
         mSpeechRecognizer.destroy()
-        instance = null
+        if (instance === this) {
+            instance = null
+        }
 
         super.onDestroy()
     }
@@ -914,7 +946,7 @@ class SKKService : InputMethodService() {
     override fun onUpdateEditorToolType(toolType: Int) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
         super.onUpdateEditorToolType(toolType)
-        updateSuggestionsASCII()
+        if (engineReady) updateSuggestionsASCII()
     }
 
     /**
@@ -922,6 +954,7 @@ class SKKService : InputMethodService() {
      * them, and can either resume them or let them continue to the app.
      */
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (!engineReady) return super.onKeyUp(keyCode, event)
         if (mEngine.state === SKKASCIIState) {
             return super.onKeyUp(keyCode, event)
         }
@@ -962,6 +995,7 @@ class SKKService : InputMethodService() {
      * them, and can either resume them or let them continue to the app.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (!engineReady) return super.onKeyDown(keyCode, event)
         val engineState = mEngine.state
         val encodedKey = encodeKey(event)
 
@@ -1367,7 +1401,10 @@ class SKKService : InputMethodService() {
                                     }?.setKeyState(state)
                             SKKAbbrevState -> mAbbrevKeyboardView?.setKeyState(state)
                             SKKZenkakuState -> mQwertyInputView?.setKeyState(state)
-                            else -> throw Exception("invalid state: $state")
+                            else -> {
+                                dLog("changeSoftKeyboard: invalid state: $state")
+                                null
+                            }
                         }
         if (newView == null) return
         mInputView = newView
@@ -1498,20 +1535,17 @@ class SKKService : InputMethodService() {
                                 "ユーザー辞書/${getString(R.string.dict_name_user)}/"
                         )
         dLog("dict pref: $prefVal")
-        if (!prefVal.isNullOrEmpty()) {
-            val vals = prefVal.split("/").dropLastWhile { it.isEmpty() }
-            for (i in 1 until vals.size step 2) {
-                when (vals[i]) {
-                    getString(R.string.dict_name_user) -> mUserDict?.let { result.add(it) }
-                    // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
-                    else ->
-                            SKKDictionary.newInstance(
-                                            dd + "/" + vals[i],
-                                            getString(R.string.btree_name)
-                                    )
-                                    ?.also { result.add(it) }
-                                    ?: dLog("failed to open ${vals[i]}")
-                }
+        parseDictOrder(prefVal).forEach { entry ->
+            when (entry.name) {
+                getString(R.string.dict_name_user) -> mUserDict?.let { result.add(it) }
+                // getString(R.string.dict_name_ascii) -> result.add(mAsciiDict)
+                else ->
+                        SKKDictionary.newInstance(
+                                        dd + "/" + entry.name,
+                                        getString(R.string.btree_name)
+                                )
+                                ?.also { result.add(it) }
+                                ?: dLog("failed to open ${entry.name}")
             }
         }
 

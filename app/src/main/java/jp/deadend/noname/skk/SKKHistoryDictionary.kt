@@ -2,13 +2,16 @@ package jp.deadend.noname.skk
 
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.Executors
 import jdbm.RecordManager
 import jdbm.RecordManagerFactory
 import jdbm.btree.BTree
 import jdbm.helper.StringComparator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -26,11 +29,23 @@ class SKKHistoryDictionary private constructor(
     private val mLock = Any()
     @Volatile
     private var mCache = HashMap<String, String>()
+    // 非同期の削除がまだディスクへ反映されていないキー。
+    // rebuildCache() がディスクの内容でキャッシュを作り直すとき、
+    // 削除済みのキーを復活させないために使う。
+    private val mPendingRemovals = HashSet<String>()
+    @Volatile
+    private var mPendingClear = false
 
     // JDBM永続化を非同期実行するスコープ。破損時の暴走を背景スレッドに閉じ込める。
     // サービス破棄時も最後のコミットを逃さないよう明示的にはキャンセルしない
     // （プロセス停止時はOSが後始末するため、リークは実害にならない）。
-    private val mBgScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // 単一スレッドで実行し、add → remove のような発行順を保証する。
+    // Dispatchers.IO では順序が入れ替わり、削除した履歴がディスクに残ることがある。
+    private val mPersistExecutor =
+            Executors.newSingleThreadExecutor { r ->
+                Thread(r, "SKKHistoryDictionary-persist").apply { isDaemon = true }
+            }
+    private val mBgScope = CoroutineScope(SupervisorJob() + mPersistExecutor.asCoroutineDispatcher())
     private fun logDbFileState(tag: String) {
         try {
             val dbFile = File("$mDictFile.db")
@@ -65,6 +80,7 @@ class SKKHistoryDictionary private constructor(
                         "/$value/"
                     }
             mCache[key] = newList
+            mPendingRemovals.remove(key)
         }
         logDbFileState("addHistory:before")
         // JDBMへの永続化は非同期実行。破損時も主スレッドはブロックされない
@@ -92,7 +108,10 @@ class SKKHistoryDictionary private constructor(
     }
 
     fun removeHistory(key: String) {
-        synchronized(mLock) { mCache.remove(key) }
+        synchronized(mLock) {
+            mCache.remove(key)
+            mPendingRemovals.add(key)
+        }
         logDbFileState("removeHistory:before")
         mBgScope.launch {
             try {
@@ -100,6 +119,7 @@ class SKKHistoryDictionary private constructor(
                     mBTree?.remove(key)
                     mRecMan?.commit()
                 }
+                synchronized(mLock) { mPendingRemovals.remove(key) }
                 logDbFileState("removeHistory:afterCommit")
             } catch (e: Exception) {
                 try {
@@ -112,7 +132,11 @@ class SKKHistoryDictionary private constructor(
     }
 
     fun clear() {
-        synchronized(mLock) { mCache = HashMap() }
+        synchronized(mLock) {
+            mCache = HashMap()
+            mPendingClear = true
+            mPendingRemovals.clear()
+        }
         logDbFileState("clear:before")
         mBgScope.launch {
             try {
@@ -139,6 +163,12 @@ class SKKHistoryDictionary private constructor(
                     val (newRecMan, newBTree) = openDB(mDictFile, mBtreeName)
                     mRecMan = newRecMan
                     mBTree = newBTree
+                    // 消去中に addHistory() された履歴は、古い DB への書き込みが
+                    // この削除で消えている可能性がある。新しい DB へ書き戻す。
+                    val snapshot = synchronized(mLock) { HashMap(mCache) }
+                    snapshot.forEach { (key, value) -> newBTree.insert(key, value, true) }
+                    newRecMan.commit()
+                    synchronized(mLock) { mPendingClear = false }
                     logDbFileState("clear:afterRecreate")
                 }
             } catch (e: Exception) {
@@ -148,16 +178,22 @@ class SKKHistoryDictionary private constructor(
         }
     }
 
-    // B17修正元からの継承: close() で instance = null にリセットするが、
-    // reopen()/recreate() が instance を復元するため再オープンが可能
+    // B17修正元からの継承: close() 後も getInstance() は同じインスタンスを返す。
+    // ここで instance = null にすると、次に getInstance() を呼んだ人が
+    // 同じ DB ファイルを二重オープンしてしまう。
     fun close() {
         logDbFileState("close:before")
+        // 非同期の add/remove が終わってから commit/close する（取りこぼし防止）
+        drainBackground()
         val rm = mRecMan
         // 参照を先に外すことで、クローズ済みRMへの非同期書き込み競合を防ぐ
         mRecMan = null
         mBTree = null
-        instance = null // クローズ後はgetInstance()が新しいインスタンスを生成する
-        synchronized(mLock) { mCache = HashMap() }
+        synchronized(mLock) {
+            mCache = HashMap()
+            mPendingRemovals.clear()
+            mPendingClear = false
+        }
         rm?.let {
             safeRun {
                 it.commit()
@@ -167,11 +203,17 @@ class SKKHistoryDictionary private constructor(
         logDbFileState("close:afterCommit")
     }
 
+    /** テスト・close() 前の待ち合わせ用。実行中のバックグラウンド永続化を完了させる。 */
+    internal suspend fun awaitBackground() {
+        val job = mBgScope.coroutineContext[Job] ?: return
+        job.children.toList().forEach { it.join() }
+    }
+
+    private fun drainBackground() = runBlocking { awaitBackground() }
+
     fun reopen() {
         logDbFileState("reopen:before")
         close()
-        // close()でinstance = nullになるので復元
-        instance = this
         // JDBM再オープンとキャッシュ再構築は非同期。破損時の暴走を主スレッドに持ち込まない
         mBgScope.launch {
             try {
@@ -193,10 +235,6 @@ class SKKHistoryDictionary private constructor(
         logDbFileState("recreate:before")
         close()
         java.io.File("$mDictFile.db").delete()
-        // close()でinstance = nullになるので復元（reopen() と同様に）
-        // instance を復元しないとgetInstance()が新しいインスタンスを生成し、
-        // 同一DBファイルへの二重オープンに繋がる
-        instance = this
         // 再オープンとキャッシュ再構築は非同期
         mBgScope.launch {
             try {
@@ -214,23 +252,39 @@ class SKKHistoryDictionary private constructor(
         }
     }
 
+    /** テスト専用: ディスク読み取り直後・マージ直前（mMutex 保持中）に呼ばれる。 */
+    internal var testHookAfterDiskRead: (() -> Unit)? = null
+
+    internal fun rebuildCacheForTest() = rebuildCache()
+
     // JDBMの全エントリをメモリキャッシュへ読み込む（背景スレッド専用）
     private fun rebuildCache() {
-        val map = safeRun {
-            val m = HashMap<String, String>()
-            val btree = mBTree ?: return@safeRun m
+        // 読み取りとマージを同じ mMutex の中で行う。永続化（commit）も同じ mutex を
+        // 取るため、読み取り中に削除がコミットされることはない。
+        // 読み取りとマージを分けると、その間に削除が完了して削除の印が消え、
+        // 古いスナップショットから削除済みの履歴が復活する。
+        safeRun {
+            val map = HashMap<String, String>()
             try {
-                val tuple = jdbm.helper.Tuple<String, String>()
-                val browser = btree.browse()
-                while (browser.getNext(tuple)) {
-                    m[tuple.key] = tuple.value
+                val btree = mBTree
+                if (btree != null) {
+                    val tuple = jdbm.helper.Tuple<String, String>()
+                    val browser = btree.browse()
+                    while (browser.getNext(tuple)) {
+                        map[tuple.key] = tuple.value
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("SKKHistoryDictionary", "rebuildCache error: ${e.message}")
             }
-            m
+            testHookAfterDiskRead?.invoke()
+            synchronized(mLock) {
+                // ディスクのスナップショットで丸ごと置き換えると、
+                // 読み込み中に addHistory() された分が消える。
+                // メモリ側（新しい）を優先してマージする。
+                mCache = mergeHistoryDiskSnapshot(map, mCache, mPendingRemovals, mPendingClear)
+            }
         }
-        synchronized(mLock) { mCache = map }
     }
 
     // 初期ロード時に背景スレッドでキャッシュを構築する
@@ -254,6 +308,11 @@ class SKKHistoryDictionary private constructor(
             return instance ?: synchronized(this) {
                 instance ?: newInstance(mDictFile, btreeName)?.also { instance = it }
             }
+        }
+
+        /** テスト専用。プロセス内シングルトンを破棄する。 */
+        internal fun resetInstanceForTest() {
+            synchronized(this) { instance = null }
         }
 
         fun openDB(
@@ -309,4 +368,27 @@ class SKKHistoryDictionary private constructor(
             }
         }
     }
+}
+
+/**
+ * ディスクのスナップショットとメモリキャッシュをマージする。
+ * - メモリにある値は「より新しい」として優先する
+ * - 非同期削除待ちのキーはディスクに残っていても復活させない
+ * - clear() の永続化が終わるまではディスクの内容を無視する
+ */
+internal fun mergeHistoryDiskSnapshot(
+        disk: Map<String, String>,
+        current: Map<String, String>,
+        pendingRemovals: Set<String>,
+        pendingClear: Boolean,
+): HashMap<String, String> {
+    if (pendingClear) {
+        // 消去が終わる前のディスクは古い内容なので無視する。
+        // ただし消去中に addHistory() された分 (current) は残す。
+        return HashMap(current)
+    }
+    val merged = HashMap(disk)
+    merged.putAll(current)
+    pendingRemovals.forEach { merged.remove(it) }
+    return merged
 }

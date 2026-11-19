@@ -328,6 +328,31 @@ fun dLog(msg: String) {
     if (BuildConfig.DEBUG) android.util.Log.d("SKK", msg)
 }
 
+/** 辞書順設定の 1 エントリ。設定上は「ラベル/ファイル名/」を繰り返した 1 本の文字列。 */
+internal data class DictOrderEntry(val label: String, val name: String)
+
+/**
+ * 辞書順設定をパースする。
+ * 壊れた設定（要素数が奇数・空など）でも例外を投げず、読める範囲だけ返す。
+ * 以前は呼び出し側ごとに split/chunked しており、奇数要素で IndexOutOfBounds になった。
+ */
+internal fun parseDictOrder(value: String?): List<DictOrderEntry> {
+    if (value.isNullOrEmpty()) return emptyList()
+
+    val tokens = value.split("/").dropLastWhile { it.isEmpty() }
+    val result = mutableListOf<DictOrderEntry>()
+    var i = 0
+    while (i + 1 < tokens.size) {
+        val label = tokens[i]
+        val name = tokens[i + 1]
+        if (name.isNotEmpty()) {
+            result.add(DictOrderEntry(label, name))
+        }
+        i += 2
+    }
+    return result
+}
+
 fun getFileNameFromUri(context: Context, uri: Uri): String? {
     val fileName: String?
     when (uri.scheme) {
@@ -348,15 +373,18 @@ fun getFileNameFromUri(context: Context, uri: Uri): String? {
 
 @Throws(IOException::class)
 internal fun unzipFile(input: InputStream, outDir: File) {
+    val outRoot = outDir.canonicalFile.toPath()
     ZipInputStream(BufferedInputStream(input)).use { zis ->
-        var ze: ZipEntry? // ここの「?」を消してもビルドが通るのはバグだと思う
+        var ze: ZipEntry?
         do {
             ze = zis.nextEntry
         } while (null != ze?.also
             {
                 val f = File(outDir, ze.name)
-                if (!f.canonicalPath.startsWith(outDir.canonicalPath)) {
-                    throw IOException("zip path traversal")
+                // 文字列の前方一致ではなくパス要素単位で比較する。
+                // (旧実装は outDir=/a/b のとき /a/bc への脱出を許していた)
+                if (!f.canonicalFile.toPath().startsWith(outRoot)) {
+                    throw IOException("zip path traversal: ${ze.name}")
                 }
                 if (f.isDirectory) {
                     f.mkdirs()
@@ -391,8 +419,10 @@ private val Z2H_PAIRS =
         0x300C to 0x0FF62, // 「
         0x300D to 0x0FF63, // 」
 
-        0x3099 to 0x10000, // ゛
-        0x309A to 0x20000, // ゜
+        0x3099 to 0x0FF9E, // ゛(合成用)
+        0x309A to 0x0FF9F, // ゜(合成用)
+        0x309B to 0x0FF9E, // ゛(間隔用)
+        0x309C to 0x0FF9F, // ゜(間隔用)
     ) + stepConv( // ァィゥェォ
         0x30A1, 2, 5, 0x0FF67
     ) + stepConv( // アイウエオ
@@ -420,7 +450,7 @@ private val Z2H_PAIRS =
         0x30EF to 0x0FF9C, // ワ
         // 0x30F0 to 0x0FF72, // ヰ
         // 0x30F1 to 0x0FF74, // ヱ
-        0x30F2 to 0x0FF65, // ヲ
+        0x30F2 to 0x0FF66, // ヲ
         0x30F3 to 0x0FF9D, // ン
         0x30F4 to 0x1FF73, // ヴ
         // 0x30F5 to 0x0FF76, // 小書きカ

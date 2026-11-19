@@ -21,7 +21,7 @@ class SKKDictionary private constructor(
             value = mBTree.find(key)
         } catch (e: IOException) {
             Log.e("SKK", "Error in getCandidates(): $e")
-            throw RuntimeException(e)
+            return null
         }
 
         if (value == null) return null

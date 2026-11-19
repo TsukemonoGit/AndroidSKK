@@ -807,14 +807,10 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
                                         '↑' -> 'k'.code
                                         '→' -> 'l'.code
                                         '↓' -> 'j'.code
-                                        else ->
-                                                throw IllegalArgumentException(
-                                                        "Char($guidedCode) is not an arrow: ${
-                                        Char(
+                                        else -> {
+                                            dLog("unexpected arrow: ${Char(guidedCode)}")
                                             guidedCode
-                                        )
-                                    }"
-                                                )
+                                        }
                                     }
                                 }
                                 '￥'.code -> {
@@ -892,10 +888,10 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
                                                             when (popupText[1]) {
                                                                 'っ', 'ッ' -> "xtu"
                                                                 'ん', 'ン' -> "nn"
-                                                                else ->
-                                                                        throw RuntimeException(
-                                                                                "mPopupTextView is $mPopupTextView"
-                                                                        )
+                                                                else -> {
+                                                                    dLog("unexpected popup char: ${popupText[1]}")
+                                                                    ""
+                                                                }
                                                             }.forEach {
                                                                 mService.processKey(it.code)
                                                             }
