@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 31 以降のバックアップ／端末間転送の対象。
+  設定（SharedPreferences）だけをバックアップする。
+  - 変換履歴は入力内容そのものであり、プライバシー上バックアップすべきでない
+  - JDBM の .db / .lg はオープン中は一貫性がなく、復元すると壊れている可能性がある
+  - 辞書は再生成・再ダウンロードでき、大きいと 25MB のバックアップ上限を圧迫する
+  backup_rules.xml（API 30 以下）も同じ方針。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -25,7 +25,9 @@ android {
         buildConfig = true
     }
     lint {
-        abortOnError = false
+        // 新規の lint エラーでビルドを止める。
+        // 依存ライブラリの更新通知など警告だけでは止まらない。
+        abortOnError = true
     }
     namespace = 'jp.deadend.noname.skk'
 
@@ -37,6 +39,8 @@ android {
 
     testOptions {
         unitTests {
+            // Android API 呼び出しを既定値で返す。純粋ロジックのテストを軽く保つため。
+            // Android 依存の挙動は Robolectric のテストで明示的に検証する。
             returnDefaultValues = true
             includeAndroidResources = true
         }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 30 以前の自動バックアップの対象。
+  設定（SharedPreferences）だけをバックアップする。
+  変換履歴・JDBM 辞書を除外する理由は data_extraction_rules.xml を参照。
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="." />
+</full-backup-content>

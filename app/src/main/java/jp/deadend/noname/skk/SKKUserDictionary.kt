@@ -2,6 +2,7 @@ package jp.deadend.noname.skk
 
 import android.util.Log
 import java.io.File
+import java.io.IOException
 import jdbm.RecordManager
 import jdbm.RecordManagerFactory
 import jdbm.btree.BTree
@@ -27,8 +28,14 @@ private constructor(
 
     fun getEntry(rawKey: String, rawValue: String? = null): Entry? {
         val key = katakana2hiragana(rawKey) ?: return null
-        val value: String = rawValue ?: mBTree?.find(key) ?: return null
+        // rawValue が渡された場合は DB を読まない。
+        // 呼び出し元がすでにロックを持っている経路（addEntry など）でも安全。
+        val value: String = rawValue ?: safeRun { mBTree?.find(key) } ?: return null
+        return parseEntry(key, value)
+    }
 
+    /** BTree を読まずに値を解析する。呼び出し側でロックを取っていること。 */
+    private fun parseEntry(key: String, value: String): Entry? {
         // 正規表現で "/送/" と "/[り/送/]/" を拾う
         val (candidates, okuriganaStrings) =
                 Regex("""((?<=/)[^\[\]/;][^/]*?(?=/)(?!]/))|((?<=/\[).+?(?=/]/))""")
@@ -56,6 +63,18 @@ private constructor(
                 }
 
         return Entry(candidates, okuriganaBlocks)
+    }
+
+    /** ロック保持中に呼ぶ読み取り。 */
+    private fun findEntryLocked(key: String): Entry? {
+        val value =
+                try {
+                    mBTree?.find(key)
+                } catch (e: IOException) {
+                    Log.e("SKK", "Error in getEntry(): $e")
+                    null
+                } ?: return null
+        return parseEntry(key, value)
     }
 
     override fun getCandidates(rawKey: String): List<String>? =
@@ -103,39 +122,47 @@ private constructor(
 
     // B15修正: 送りブロックを削除しても候補が残っている場合はエントリを維持
     fun removeEntry(key: String, value: String, okurigana: String) {
-        // 実際に存在するキーを 1 度だけ解決し、読み書きで同じキーを使う。
-        // (以前は「#」版を読んで元のキーへ書いていたため、削除されずゴミが増えていた)
-        val resolvedKey =
-                if (getEntry(key) != null) key
-                else key.replace(Regex("\\d+(\\.\\d+)?"), "#").takeIf { getEntry(it) != null }
-                        ?: return
-        val entry = getEntry(resolvedKey) ?: return
-        val candidates = entry.candidates.toMutableList()
-        val okuriganaBlocks = entry.okuriganaBlocks.toMutableList()
-        val rawVal = value.takeWhile { it != ';' } // 注釈を無視して探す
-
-        // 送り仮名ブロックを削除
-        okuriganaBlocks.removeIf { pair ->
-            pair.first == okurigana && pair.second.takeWhile { it != ';' } == rawVal
-        }
-
-        // 候補を削除: 残り(okuriganaRemoved)の送りブロックからrawValが参照されている場合は候補を残す
-        if (okuriganaBlocks.none { it.second.takeWhile { it2 -> it2 != ';' } == rawVal }) {
-            candidates.removeIf { old ->
-                old.takeWhile { it != ';' } == rawVal
-            }
-        }
-
-        // B15修正: 候補も送りブロックも空になった場合のみ削除
-        if (candidates.isEmpty() && okuriganaBlocks.isEmpty()) {
-            replaceEntry(resolvedKey, "")
-        } else {
-            val newVal =
-                    candidates.fold("/") { acc, str -> "$acc$str/" } +
-                            okuriganaBlocks.fold("") { acc, pair ->
-                                "$acc[${pair.first}/${pair.second}/]/"
+        // キー解決から書き込みまでを 1 つのロックで行う。
+        // 途中で別スレッドの insert が入ると、古い内容を元に上書きしてしまう。
+        safeRun {
+            // 実際に存在するキーを 1 度だけ解決し、読み書きで同じキーを使う。
+            // (以前は「#」版を読んで元のキーへ書いていたため、削除されずゴミが増えていた)
+            val resolvedKey =
+                    if (findEntryLocked(key) != null) key
+                    else
+                            key.replace(Regex("\\d+(\\.\\d+)?"), "#").takeIf {
+                                findEntryLocked(it) != null
                             }
-            replaceEntry(resolvedKey, newVal)
+                                    ?: return@safeRun
+            val entry = findEntryLocked(resolvedKey) ?: return@safeRun
+            val candidates = entry.candidates.toMutableList()
+            val okuriganaBlocks = entry.okuriganaBlocks.toMutableList()
+            val rawVal = value.takeWhile { it != ';' } // 注釈を無視して探す
+
+            // 送り仮名ブロックを削除
+            okuriganaBlocks.removeIf { pair ->
+                pair.first == okurigana && pair.second.takeWhile { it != ';' } == rawVal
+            }
+
+            // 候補を削除: 残り(okuriganaRemoved)の送りブロックからrawValが参照されている場合は候補を残す
+            if (okuriganaBlocks.none { it.second.takeWhile { it2 -> it2 != ';' } == rawVal }) {
+                candidates.removeIf { old ->
+                    old.takeWhile { it != ';' } == rawVal
+                }
+            }
+
+            // B15修正: 候補も送りブロックも空になった場合のみ削除
+            if (candidates.isEmpty() && okuriganaBlocks.isEmpty()) {
+                mBTree?.remove(resolvedKey)
+            } else {
+                val newVal =
+                        candidates.fold("/") { acc, str -> "$acc$str/" } +
+                                okuriganaBlocks.fold("") { acc, pair ->
+                                    "$acc[${pair.first}/${pair.second}/]/"
+                                }
+                mBTree?.insert(resolvedKey, newVal, true)
+            }
+            mRecMan?.commit()
         }
     }
 

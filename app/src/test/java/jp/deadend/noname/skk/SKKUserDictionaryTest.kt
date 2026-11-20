@@ -9,6 +9,9 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class SKKUserDictionaryTest {
 
@@ -88,5 +91,30 @@ class SKKUserDictionaryTest {
 
         dict.removeEntry("たべる", "食べる", "たべ")
         assertNull(dict.getEntry("たべる"))
+    }
+
+    @Test
+    fun testFindKeysReturnsEntries() = runBlocking {
+        dict.addEntry("かんじ", "漢字", "")
+        dict.addEntry("かんじ", "感じ", "")
+        dict.addEntry("かんじる", "感じる", "")
+
+        val keys = dict.findKeys(this, "かんじ")
+
+        assertEquals(listOf("かんじ" to "かんじ", "かんじる" to "かんじる"), keys)
+    }
+
+    @Test
+    fun testFindKeysWhileWritingDoesNotThrow() = runBlocking {
+        dict.addEntry("かんじ", "漢字", "")
+        // findKeys は書き込みと同じ mutex を使う。同時実行で壊れないこと。
+        val writer =
+                launch(Dispatchers.IO) {
+                    repeat(30) { i -> dict.addEntry("かんじ", "候補$i", "") }
+                }
+        repeat(30) { dict.findKeys(this, "かんじ") }
+        writer.join()
+
+        assertTrue(dict.getEntry("かんじ")!!.candidates.isNotEmpty())
     }
 }

@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -12,6 +13,7 @@ import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.app.ActivityCompat
 import androidx.core.content.edit
 import androidx.core.view.ViewCompat
@@ -115,6 +117,27 @@ class SKKSettingsActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
+        // 予測型戻るでは KEYCODE_BACK を dispatchKeyEvent で拾えないため、
+        // 戻る操作は OnBackPressedDispatcher で扱う。
+        onBackPressedDispatcher.addCallback(
+                this,
+                object : OnBackPressedCallback(true) {
+                    override fun handleOnBackPressed() {
+                        // キー割り当て待ちのときは、戻る操作でキャンセルする
+                        if (keyPref != null) {
+                            keyPref = null
+                            return
+                        }
+                        // 子画面の戻るなど、通常の戻る処理へ委譲する。
+                        // 委譲先が子画面を閉じるだけの場合もあるので、この後で
+                        // 再び有効に戻しておく（無効のままだと次回キャンセルできない）。
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+        )
+
         supportFragmentManager.beginTransaction()
             .replace(binding.content.id, SettingsMainFragment())
             .commit()
@@ -137,6 +160,9 @@ class SKKSettingsActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
     }
 
+    // 戻るキーは割り当て対象にしない（戻る処理は OnBackPressedDispatcher が扱う）。
+    // lint は KEYCODE_BACK の参照自体を警告するため、意図を明示して抑制する。
+    @SuppressLint("GestureBackNavigation")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = keyPref.let { pref ->
         if (pref == null) return super.dispatchKeyEvent(event)
         dLog("dispatchKeyEvent($event)")

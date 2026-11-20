@@ -28,3 +28,6 @@ local.properties
 /svg
 
 /release
+
+# 動作確認時のログ（リポジトリに含めない）
+logcat*.txt
