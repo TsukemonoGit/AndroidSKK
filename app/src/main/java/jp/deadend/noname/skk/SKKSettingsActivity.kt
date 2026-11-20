@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -127,8 +128,12 @@ class SKKSettingsActivity : AppCompatActivity() {
                             keyPref = null
                             return
                         }
+                        // 子画面の戻るなど、通常の戻る処理へ委譲する。
+                        // 委譲先が子画面を閉じるだけの場合もあるので、この後で
+                        // 再び有効に戻しておく（無効のままだと次回キャンセルできない）。
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
                     }
                 }
         )
@@ -155,11 +160,14 @@ class SKKSettingsActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
     }
 
+    // 戻るキーは割り当て対象にしない（戻る処理は OnBackPressedDispatcher が扱う）。
+    // lint は KEYCODE_BACK の参照自体を警告するため、意図を明示して抑制する。
+    @SuppressLint("GestureBackNavigation")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = keyPref.let { pref ->
         if (pref == null) return super.dispatchKeyEvent(event)
         dLog("dispatchKeyEvent($event)")
         return when (event.keyCode) {
-            KeyEvent.KEYCODE_ENTER -> false
+            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ENTER -> false
             KeyEvent.KEYCODE_HOME -> true
             else -> if (event.action == KeyEvent.ACTION_DOWN) {
                 val key = encodeKey(event)
