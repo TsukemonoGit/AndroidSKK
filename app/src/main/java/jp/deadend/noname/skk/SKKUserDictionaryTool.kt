@@ -1,6 +1,5 @@
 package jp.deadend.noname.skk
 
-import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -10,12 +9,11 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import jdbm.helper.Tuple
+import androidx.lifecycle.lifecycleScope
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
 import jp.deadend.noname.dialog.SimpleMessageDialogFragment
 import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -31,8 +29,9 @@ class SKKUserDictionaryTool : AppCompatActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@registerForActivityResult
-        MainScope().launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val dict = requireUserDict() ?: return@launch
                 withContext(Dispatchers.Main) {
                     binding.userDictToolSearch.queryHint = "インポート中..."
                     // ActionBar からはアクセスできないため、ここは一旦飛ばすか Activity の invalidateOptionsMenu などを使う
@@ -48,9 +47,7 @@ class SKKUserDictionaryTool : AppCompatActivity() {
 
                 contentResolver.openInputStream(uri)?.use { stream ->
                     val processedStream = if (isGzip) java.util.zip.GZIPInputStream(stream) else stream
-                    val recMan = mUserDict?.mRecMan ?: return@use
-                    val btree = mUserDict?.mBTree ?: return@use
-                    loadFromTextDict(processedStream, charset, isWordList, recMan, btree, false) {}
+                    dict.importFromText(processedStream, charset, isWordList)
                 }
             } catch (e: Exception) {
                 Log.e("SKK", "UserDictionaryTool import error: $e")
@@ -60,11 +57,13 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                     ).show(supportFragmentManager, "dialog")
                 }
             } finally {
+                val loaded = loadEntryList()
                 withContext(Dispatchers.Main) {
                     binding.userDictToolSearch.queryHint = ""
                     // binding.userDictToolToolbar.menu.setGroupEnabled(0, true)
-                    loadEntryList()
-                    filterList(binding.userDictToolSearch.query?.toString())
+                    if (loaded) {
+                        filterList(binding.userDictToolSearch.query?.toString())
+                    }
                 }
             }
         }
@@ -74,7 +73,7 @@ class SKKUserDictionaryTool : AppCompatActivity() {
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
         if (uri == null) return@registerForActivityResult
-        MainScope().launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { writer ->
                     mEntryList.forEach { (key, value) ->
@@ -118,32 +117,11 @@ class SKKUserDictionaryTool : AppCompatActivity() {
         setSupportActionBar(binding.userDictToolToolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // DB初期化（直接 openDB を使う。isASCII=false なので extractDictionary は不要）
-        val dictFile = filesDir.absolutePath + "/" + getString(R.string.dict_name_user)
-        val btreeName = getString(R.string.btree_name)
-        mUserDict = try {
-            val (recMan, btree) = SKKUserDictionary.openDB(dictFile, btreeName)
-            SKKUserDictionary.newInstanceFromOpenDB(recMan, btree, dictFile, btreeName)
-        } catch (e: Exception) {
-            Log.e("SKK", "UserDictionaryTool: failed to open userdict: $e")
-            null
-        }
-        if (mUserDict == null) {
-            SimpleMessageDialogFragment.newInstance(
-                getString(R.string.error_tools_open_user_dict)
-            ).show(supportFragmentManager, "dialog")
-            return
-        }
-
-        // 全件取得
-        loadEntryList()
-        mFilteredList.addAll(mEntryList)
-
-        // リスト表示
+        // リスト表示。DB のオープンと全件取得は IO スレッドで行う。
         mAdapter = android.widget.ArrayAdapter(
             this,
             android.R.layout.simple_list_item_1,
-            mFilteredList.map { (k, v) -> "$k  ${formatDictEntry(k, v)}" }.toMutableList()
+            mutableListOf()
         )
         binding.userDictToolList.adapter = mAdapter
         binding.userDictToolList.emptyView = binding.EmptyListItem
@@ -169,20 +147,29 @@ class SKKUserDictionaryTool : AppCompatActivity() {
             )
             dialog.setListener(object : ConfirmationDialogFragment.Listener {
                 override fun onPositiveClick() {
-                    // 候補ごとに削除（送り仮名なし前提でシンプルに）
-                    entry.candidates.forEach { candidate ->
-                        mUserDict?.removeEntry(key, candidate, "")
+                    lifecycleScope.launch {
+                        val dict = mUserDict ?: return@launch
+                        withContext(Dispatchers.IO) {
+                            // 候補ごとに削除（送り仮名なし前提でシンプルに）
+                            entry.candidates.forEach { candidate ->
+                                dict.removeEntry(key, candidate, "")
+                            }
+                        }
+                        if (loadEntryList()) {
+                            filterList(binding.userDictToolSearch.query?.toString())
+                        }
                     }
-                    loadEntryList()
-                    filterList(binding.userDictToolSearch.query?.toString())
                 }
                 override fun onNegativeClick() {}
             })
             dialog.show(supportFragmentManager, "dialog")
         }
 
-        // (Moved importFileLauncher to class property)
-
+        lifecycleScope.launch {
+            if (loadEntryList()) {
+                filterList(binding.userDictToolSearch.query?.toString())
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
@@ -200,14 +187,16 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                 val dialog = jp.deadend.noname.dialog.DictEntryDialogFragment.newInstance("エントリの追加")
                 dialog.setListener(object : jp.deadend.noname.dialog.DictEntryDialogFragment.Listener {
                     override fun onPositiveClick(key: String, value: String) {
-                        try {
-                            mUserDict?.let { dict ->
-                                dict.addEntry(key, value, "")
-                                loadEntryList()
-                                filterList(binding.userDictToolSearch.query?.toString())
+                        lifecycleScope.launch {
+                            try {
+                                val dict = requireUserDict() ?: return@launch
+                                withContext(Dispatchers.IO) { dict.addEntry(key, value, "") }
+                                if (loadEntryList()) {
+                                    filterList(binding.userDictToolSearch.query?.toString())
+                                }
+                            } catch (e: Exception) {
+                                Log.e("SKK", "UserDictionaryTool error adding entry: ${e.message}")
                             }
-                        } catch (e: Exception) {
-                            Log.e("SKK", "UserDictionaryTool error adding entry: ${e.message}")
                         }
                     }
                     override fun onNegativeClick() {}
@@ -232,9 +221,13 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                 dialog.setListener(
                         object : jp.deadend.noname.dialog.ConfirmationDialogFragment.Listener {
                             override fun onPositiveClick() {
-                                mUserDict?.clear()
-                                loadEntryList()
-                                filterList(binding.userDictToolSearch.query?.toString())
+                                lifecycleScope.launch {
+                                    val dict = mUserDict ?: return@launch
+                                    withContext(Dispatchers.IO) { dict.clear() }
+                                    if (loadEntryList()) {
+                                        filterList(binding.userDictToolSearch.query?.toString())
+                                    }
+                                }
                             }
                             override fun onNegativeClick() {}
                         }
@@ -249,30 +242,55 @@ class SKKUserDictionaryTool : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mUserDict?.close()
+        // 辞書はプロセス内シングルトンなので、ここでは閉じない。
+        // IME が同じインスタンスを使い続けられるよう、参照を落とすだけにする。
         mUserDict = null
-        // サービスに辞書の再オープンを通知
-        if (SKKService.isRunning()) {
-            val intent = Intent(this, SKKService::class.java)
-            intent.putExtra(SKKService.KEY_COMMAND, SKKService.COMMAND_RELOAD_DICT)
-            startService(intent)
-        }
     }
 
-    private fun loadEntryList() {
-        mEntryList.clear()
-        val dict = mUserDict ?: return
-        val btree = dict.mBTree ?: return
-        try {
-            val tuple = jdbm.helper.Tuple<String, String>()
-            val browser = btree.browse() ?: return
-            while (browser.getNext(tuple)) {
-                mEntryList.add(tuple.key to tuple.value)
-            }
-        } catch (e: Exception) {
-            Log.e("SKK", "loadEntryList error: $e. Recreating UserDict.")
-            dict.recreate()
+    /** 辞書を取得する。まだなら IO スレッドで開く。 */
+    private suspend fun requireUserDict(): SKKUserDictionary? {
+        mUserDict?.let {
+            return it
         }
+        val dict =
+            withContext(Dispatchers.IO) {
+                SKKUserDictionary.getInstance(
+                    filesDir.absolutePath + "/" + getString(R.string.dict_name_user),
+                    getString(R.string.btree_name)
+                )
+            }
+        if (dict == null) {
+            withContext(Dispatchers.Main) {
+                SimpleMessageDialogFragment.newInstance(
+                    getString(R.string.error_tools_open_user_dict)
+                ).show(supportFragmentManager, "dialog")
+            }
+        }
+        mUserDict = dict
+        return dict
+    }
+
+    /** 全件を読み直す。破損時は作り直して再試行する。 */
+    private suspend fun loadEntryList(): Boolean {
+        val dict = requireUserDict() ?: return false
+        val entries =
+            withContext(Dispatchers.IO) {
+                try {
+                    dict.getAllEntries()
+                } catch (e: Exception) {
+                    Log.e("SKK", "loadEntryList error: $e. Recreating UserDict.")
+                    try {
+                        dict.recreate()
+                        dict.getAllEntries()
+                    } catch (e2: Exception) {
+                        Log.e("SKK", "loadEntryList retry error: $e2")
+                        emptyList()
+                    }
+                }
+            }
+        mEntryList.clear()
+        mEntryList.addAll(entries)
+        return true
     }
 
     private fun formatDictEntry(key: String, rawValue: String): String {

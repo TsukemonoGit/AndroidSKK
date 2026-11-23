@@ -108,8 +108,10 @@ class SKKEngine(
     fun reopenDictionaries(dictList: List<SKKDictionaryInterface>) {
         for (dict in mDictList) when (dict) {
             mUserDict -> {
-                mUserDict.reopen()
-                mASCIIDict.reopen() // ASCII は mDictList に入れていない
+                // ユーザー辞書はプロセス内シングルトン。閉じて開き直すと
+                // 編集中のツールの参照が無効になるため、変更の反映だけ行う。
+                mUserDict.flush()
+                mASCIIDict.flush() // ASCII は mDictList に入れていない
                 mHistoryDict?.reopen()
             }
             else -> dict.close()
@@ -139,11 +141,12 @@ class SKKEngine(
     }
 
     fun closeUserDict() {
-        mUserDict.close()
-        mASCIIDict.close()
-        // 履歴辞書はプロセス内シングルトン。IME のサービス終了に合わせて閉じると、
-        // 履歴ツールが持っている参照が無効になるため、ここでは閉じない。
-        // (履歴は小さく、プロセス終了時に OS が後始末する)
+        // ユーザー辞書 / ASCII 辞書はプロセス内シングルトン。
+        // サービス終了に合わせて閉じると、同時に開いている辞書ツールの参照が
+        // 無効になるため、commit だけ行う（プロセス終了時に OS が後始末する）。
+        mUserDict.flush()
+        mASCIIDict.flush()
+        // 履歴辞書も同じ理由で閉じない。
     }
 
     fun processKey(keyCode: Int) {
