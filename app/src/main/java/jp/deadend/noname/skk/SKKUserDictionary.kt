@@ -25,6 +25,9 @@ private constructor(
     private var mOldKey: String = ""
     private var mOldValue: String = ""
 
+    /** 辞書を開き直すたびに増える。進行中のインポートが古い BTree を使い続けないために使う。 */
+    @Volatile private var mGeneration = 0
+
     class Entry(val candidates: List<String>, val okuriganaBlocks: List<Pair<String, String>>)
 
     fun getEntry(rawKey: String, rawValue: String? = null): Entry? {
@@ -254,33 +257,44 @@ private constructor(
             charset: String,
             isWordList: Boolean,
             onProgress: (count: Int) -> Unit = {}
-    ) {
-        val btree = safeRun { mBTree } ?: return
-        val loader = TextDictLineLoader(isWordList, false, btree)
+    ): Boolean {
+        var generation = -1
+        val initial =
+                safeRun {
+                    generation = mGeneration
+                    mBTree
+                } ?: return false
+        val loader = TextDictLineLoader(isWordList, false, initial)
         createTextDictReader(inputStream, charset).use { reader ->
             val batch = ArrayList<String>(IMPORT_BATCH_SIZE)
             var count = 0
-            reader.forEachLine { line ->
-                batch.add(line)
-                if (batch.size >= IMPORT_BATCH_SIZE) {
+
+            fun applyBatch(): Boolean =
                     safeRun {
+                        // 初期化（recreate）で BTree が差し替わっていたら、古い辞書には書かない。
+                        if (mGeneration != generation) return@safeRun false
                         batch.forEach(loader::loadLine)
                         mRecMan?.commit()
+                        true
                     }
+
+            while (true) {
+                val line = reader.readLine() ?: break
+                batch.add(line)
+                if (batch.size >= IMPORT_BATCH_SIZE) {
+                    if (!applyBatch()) return false
                     count += batch.size
                     batch.clear()
                     onProgress(count)
                 }
             }
             if (batch.isNotEmpty()) {
-                safeRun {
-                    batch.forEach(loader::loadLine)
-                    mRecMan?.commit()
-                }
+                if (!applyBatch()) return false
                 count += batch.size
                 onProgress(count)
             }
         }
+        return true
     }
 
     override fun close() {
@@ -291,11 +305,12 @@ private constructor(
             } catch (e: IOException) {
                 Log.e("SKK", "Error closing user dictionary: $e")
             }
+            mOldKey = ""
+            mOldValue = ""
+            mRecMan = null
+            mBTree = null
+            mGeneration++
         }
-        mOldKey = ""
-        mOldValue = ""
-        mRecMan = null
-        mBTree = null
     }
 
     /**
