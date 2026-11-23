@@ -82,7 +82,13 @@ private constructor(
             getEntry(rawKey)?.candidates?.distinct()
 
     // B14修正: mOldKey/mOldValue の読み書きを safeRun 内に統合
-    fun addEntry(key: String, value: String, okurigana: String) {
+    // updateRollback=false は辞書ツール用。IME の再変換記録を上書きしない。
+    fun addEntry(
+            key: String,
+            value: String,
+            okurigana: String,
+            updateRollback: Boolean = true
+    ) {
         // 読み取り(find)も同じロック内で行う。
         // 外で読むと、直後に他スレッドの insert/commit が入った場合に
         // 古い値を元に新しい値を組み立ててしまう。
@@ -114,8 +120,10 @@ private constructor(
                         }
                     }
 
-            mOldKey = key
-            mOldValue = oldVal.orEmpty()
+            if (updateRollback) {
+                mOldKey = key
+                mOldValue = oldVal.orEmpty()
+            }
             mBTree?.insert(key, newVal, true)
             mRecMan?.commit()
         }
@@ -212,11 +220,6 @@ private constructor(
         }
     }
 
-    /** 変更をディスクへ反映する。プロセス内シングルトンなので close はしない。 */
-    fun flush() {
-        safeRun { mRecMan?.commit() }
-    }
-
     /** 全エントリを取得する。件数が多い場合は IO スレッドから呼ぶこと。 */
     fun getAllEntries(): List<Pair<String, String>> =
             safeRun {
@@ -241,18 +244,42 @@ private constructor(
         }
     }
 
-    /** テキスト辞書を読み込む。読み込み中の書き込みは mutex で待たされる。 */
+    /**
+     * テキスト辞書を読み込む。
+     * ファイルの読み取りはロックの外で行い、1000 行ずつ BTree へ反映する。
+     * これにより、インポート中も IME の読み書きが長時間ブロックされない。
+     */
     fun importFromText(
             inputStream: InputStream,
             charset: String,
             isWordList: Boolean,
             onProgress: (count: Int) -> Unit = {}
     ) {
-        safeRun {
-            val recMan = mRecMan ?: return@safeRun
-            val btree = mBTree ?: return@safeRun
-            loadFromTextDict(inputStream, charset, isWordList, recMan, btree, false, onProgress)
-            recMan.commit()
+        val btree = safeRun { mBTree } ?: return
+        val loader = TextDictLineLoader(isWordList, false, btree)
+        createTextDictReader(inputStream, charset).use { reader ->
+            val batch = ArrayList<String>(IMPORT_BATCH_SIZE)
+            var count = 0
+            reader.forEachLine { line ->
+                batch.add(line)
+                if (batch.size >= IMPORT_BATCH_SIZE) {
+                    safeRun {
+                        batch.forEach(loader::loadLine)
+                        mRecMan?.commit()
+                    }
+                    count += batch.size
+                    batch.clear()
+                    onProgress(count)
+                }
+            }
+            if (batch.isNotEmpty()) {
+                safeRun {
+                    batch.forEach(loader::loadLine)
+                    mRecMan?.commit()
+                }
+                count += batch.size
+                onProgress(count)
+            }
         }
     }
 
@@ -289,10 +316,9 @@ private constructor(
         }
     }
 
-    /** 辞書を開き直す。シングルトンなので、既に開いていれば commit だけ行う。 */
+    /** 辞書を開き直す。シングルトンなので、既に開いていれば何もしない。 */
     fun reopen() {
         reopenIfClosed()
-        flush()
     }
 
     /**
@@ -325,6 +351,8 @@ private constructor(
             runBlocking(Dispatchers.IO) { mMutex.withLock { block() } }
 
     companion object {
+        private const val IMPORT_BATCH_SIZE = 1000
+
         // プロセス内で同じ DB を 1 インスタンスに共有する。
         // IME と辞書ツールが別々に open すると JDBM が壊れるため、所有者を 1 つにする。
         private val sInstances = HashMap<String, SKKUserDictionary>()

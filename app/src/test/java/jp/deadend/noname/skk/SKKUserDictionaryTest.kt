@@ -189,4 +189,29 @@ class SKKUserDictionaryTest {
         assertEquals(listOf("漢字"), dict.getEntry("かんじ")!!.candidates)
         assertEquals(listOf("感じる"), dict.getEntry("かんじる")!!.candidates)
     }
+
+    @Test
+    fun testImportFromTextInBatches() {
+        // バッチ境界（1000 行）をまたいでも全件登録されること。
+        val text = buildString {
+            repeat(2500) { i -> append("よみ$i /単語$i/\n") }
+        }
+        dict.importFromText(text.byteInputStream(), "UTF-8", isWordList = false) {}
+
+        assertEquals(2500, dict.size())
+        assertEquals(listOf("単語2499"), dict.getEntry("よみ2499")!!.candidates)
+    }
+
+    @Test
+    fun testToolAddDoesNotOverwriteRollbackState() {
+        // IME の変換で追加したエントリの rollback 情報を、ツールからの追加が
+        // 上書きしないこと。上書きされると rollBack() がツールの単語を消してしまう。
+        dict.addEntry("ほん", "本", "")
+        dict.addEntry("つーる", "ツール", "", updateRollback = false)
+
+        dict.rollBack()
+
+        assertNull("IME の追加が rollback される", dict.getEntry("ほん"))
+        assertEquals("ツールの追加は残る", listOf("ツール"), dict.getEntry("つーる")!!.candidates)
+    }
 }

@@ -75,8 +75,11 @@ class SKKUserDictionaryTool : AppCompatActivity() {
         if (uri == null) return@registerForActivityResult
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // 一覧の読み込み完了を待たずに空ファイルを作らないよう、DB から直接読む。
+                val dict = requireUserDict() ?: return@launch
+                val entries = dict.getAllEntries()
                 contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { writer ->
-                    mEntryList.forEach { (key, value) ->
+                    entries.forEach { (key, value) ->
                         writer.write("$key $value\n")
                     }
                 }
@@ -190,7 +193,10 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                         lifecycleScope.launch {
                             try {
                                 val dict = requireUserDict() ?: return@launch
-                                withContext(Dispatchers.IO) { dict.addEntry(key, value, "") }
+                                withContext(Dispatchers.IO) {
+                                    // ツールからの編集で IME の再変換記録を上書きしない
+                                    dict.addEntry(key, value, "", updateRollback = false)
+                                }
                                 if (loadEntryList()) {
                                     filterList(binding.userDictToolSearch.query?.toString())
                                 }
@@ -288,8 +294,11 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                     }
                 }
             }
-        mEntryList.clear()
-        mEntryList.addAll(entries)
+        // mEntryList は検索（メインスレッド）から読まれるため、置き換えもメインで行う。
+        withContext(Dispatchers.Main) {
+            mEntryList.clear()
+            mEntryList.addAll(entries)
+        }
         return true
     }
 

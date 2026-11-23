@@ -319,8 +319,14 @@ class SKKUserDictTool : AppCompatActivity() {
                         MainScope().launch(Dispatchers.IO) {
                             try {
                                 if (openUserDict()) {
-                                    // addEntry は新しい候補を先頭に追加し、重複を除く
-                                    mUserDict?.addEntry(key, value, "")
+                                    // addEntry は新しい候補を先頭に追加し、重複を除く。
+                                    // ツールからの編集で IME の再変換記録を上書きしない。
+                                    mUserDict?.addEntry(
+                                        key,
+                                        value,
+                                        "",
+                                        updateRollback = false
+                                    )
                                 }
                                 closeUserDict()
                             } catch (e: Exception) {
@@ -490,9 +496,12 @@ class SKKUserDictTool : AppCompatActivity() {
         return true
     }
 
-    /** シングルトンへの参照を落とす。DB 自体は IME と共有したまま閉じない。 */
+    /**
+     * シングルトンへの参照を落とす。DB 自体は IME と共有したまま閉じない。
+     * 書き込みは各 API が commit 済みなので、ここで flush はしない
+     * （インポート中にメインスレッドがロック待ちになるのを避ける）。
+     */
     private fun closeUserDict() {
-        mUserDict?.flush()
         mUserDict = null
         dLog("UserDictTool: detached")
     }

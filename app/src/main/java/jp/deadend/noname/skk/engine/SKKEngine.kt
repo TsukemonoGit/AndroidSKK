@@ -109,9 +109,8 @@ class SKKEngine(
         for (dict in mDictList) when (dict) {
             mUserDict -> {
                 // ユーザー辞書はプロセス内シングルトン。閉じて開き直すと
-                // 編集中のツールの参照が無効になるため、変更の反映だけ行う。
-                mUserDict.flush()
-                mASCIIDict.flush() // ASCII は mDictList に入れていない
+                // 編集中のツールの参照が無効になるため、ここでは何もしない。
+                // 各操作が commit 済みなので、再読み込みも不要。
                 mHistoryDict?.reopen()
             }
             else -> dict.close()
@@ -142,10 +141,9 @@ class SKKEngine(
 
     fun closeUserDict() {
         // ユーザー辞書 / ASCII 辞書はプロセス内シングルトン。
-        // サービス終了に合わせて閉じると、同時に開いている辞書ツールの参照が
-        // 無効になるため、commit だけ行う（プロセス終了時に OS が後始末する）。
-        mUserDict.flush()
-        mASCIIDict.flush()
+        // サービス終了に合わせて閉じたり commit したりすると、同時に開いている
+        // 辞書ツールの参照を無効にしたり、メインスレッドを待たせたりする。
+        // 各操作が commit 済みなので、ここでは何もしない（プロセス終了時に OS が後始末する）。
         // 履歴辞書も同じ理由で閉じない。
     }
 
