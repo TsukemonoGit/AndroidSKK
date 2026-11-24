@@ -542,7 +542,14 @@ class SKKService : InputMethodService() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         dLog("lifecycle: ${Thread.currentThread().stackTrace[2].methodName}")
-        assert(newConfig.orientation == resources.configuration.orientation)
+        // assert は Android では無効なので、不変条件のずれはログに残す。
+        if (newConfig.orientation != resources.configuration.orientation) {
+            Log.w(
+                "SKK",
+                "onConfigurationChanged: newConfig.orientation=${newConfig.orientation}, " +
+                    "resources.orientation=${resources.configuration.orientation}"
+            )
+        }
         mOrientation = resources.configuration.orientation
         mScreenWidth =
                 if (Build.VERSION.SDK_INT >= 35) {

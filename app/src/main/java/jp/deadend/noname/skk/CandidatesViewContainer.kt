@@ -77,48 +77,57 @@ class CandidatesViewContainer(screen: Context, attrs: AttributeSet) : LinearLayo
                     }
 
                     MotionEvent.ACTION_MOVE -> {
-                        assert(idx != -1)
-                        mActivePointers[idx] = id to x
-                        if (mActivePointers.count() > 1) { // 幅の調整
-                            val currentDistance = abs(
-                                mActivePointers.last().second - mActivePointers.first().second
-                            )
-                            val newWidth =
-                                (mPinchStartWidth - mPinchStartDistance + currentDistance)
-                                    .toInt().coerceIn(
-                                        resources.getDimensionPixelSize(R.dimen.keyboard_minimum_width),
-                                        mService.mScreenWidth
-                                    )
-                            val newLeftOffset =
-                                mDragStartLeft + (mPinchStartDistance - currentDistance).toInt() / 2
-                            mService.leftOffset =
-                                newLeftOffset.coerceIn(0, mService.mScreenWidth - newWidth)
-                            mService.inputViewWidth = newWidth
-                        } else if (mDragging) { // 位置の調整
-                            val newLeftOffset = mDragStartLeft + (
-                                    mActivePointers.first().second - mDragStartX
-                                    ).toInt()
-                            mService.leftOffset =
-                                newLeftOffset.coerceIn(0, mService.mScreenWidth - width)
-                            mService.setInputView(null)
+                        if (idx == -1) {
+                            // DOWN を取りこぼしたポインタ。assert は Android では無効なので
+                            // 実行時の分岐として無視する（IndexOutOfBounds を防ぐ）。
+                            dLog("ACTION_MOVE for unknown pointer id=$id")
+                        } else {
+                            mActivePointers[idx] = id to x
+                            if (mActivePointers.count() > 1) { // 幅の調整
+                                val currentDistance = abs(
+                                    mActivePointers.last().second - mActivePointers.first().second
+                                )
+                                val newWidth =
+                                    (mPinchStartWidth - mPinchStartDistance + currentDistance)
+                                        .toInt().coerceIn(
+                                            resources.getDimensionPixelSize(R.dimen.keyboard_minimum_width),
+                                            mService.mScreenWidth
+                                        )
+                                val newLeftOffset =
+                                    mDragStartLeft + (mPinchStartDistance - currentDistance).toInt() / 2
+                                mService.leftOffset =
+                                    newLeftOffset.coerceIn(0, mService.mScreenWidth - newWidth)
+                                mService.inputViewWidth = newWidth
+                            } else if (mDragging) { // 位置の調整
+                                val newLeftOffset = mDragStartLeft + (
+                                        mActivePointers.first().second - mDragStartX
+                                        ).toInt()
+                                mService.leftOffset =
+                                    newLeftOffset.coerceIn(0, mService.mScreenWidth - width)
+                                mService.setInputView(null)
+                            }
                         }
                     }
 
                     MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
-                        mActivePointers.removeAt(idx)
-                        if (mActivePointers.count() == 1) {
-                            saveWidth()
-                            // もう一度ドラッグに戻る
-                            mDragStartLeft = mService.leftOffset
-                            mDragStartX = mActivePointers.first().second
-                        } else if (mActivePointers.isEmpty()) {
-                            if (mDragging) {
-                                if (mDragStartLeft != mService.leftOffset) {
-                                    saveLeft(mService.leftOffset)
+                        if (idx == -1) {
+                            dLog("ACTION_UP for unknown pointer id=$id")
+                        } else {
+                            mActivePointers.removeAt(idx)
+                            if (mActivePointers.count() == 1) {
+                                saveWidth()
+                                // もう一度ドラッグに戻る
+                                mDragStartLeft = mService.leftOffset
+                                mDragStartX = mActivePointers.first().second
+                            } else if (mActivePointers.isEmpty()) {
+                                if (mDragging) {
+                                    if (mDragStartLeft != mService.leftOffset) {
+                                        saveLeft(mService.leftOffset)
+                                    }
+                                    mDragging = false
                                 }
-                                mDragging = false
+                                // DOWN で performClick() しているので else は無視
                             }
-                            // DOWN で performClick() しているので else は無視
                         }
                     }
 
