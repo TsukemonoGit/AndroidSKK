@@ -3,6 +3,7 @@ package jp.deadend.noname.skk
 import android.util.Log
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import jdbm.RecordManager
 import jdbm.RecordManagerFactory
 import jdbm.btree.BTree
@@ -23,6 +24,9 @@ private constructor(
     override val mMutex = Mutex()
     private var mOldKey: String = ""
     private var mOldValue: String = ""
+
+    /** 辞書を開き直すたびに増える。進行中のインポートが古い BTree を使い続けないために使う。 */
+    @Volatile private var mGeneration = 0
 
     class Entry(val candidates: List<String>, val okuriganaBlocks: List<Pair<String, String>>)
 
@@ -81,7 +85,13 @@ private constructor(
             getEntry(rawKey)?.candidates?.distinct()
 
     // B14修正: mOldKey/mOldValue の読み書きを safeRun 内に統合
-    fun addEntry(key: String, value: String, okurigana: String) {
+    // updateRollback=false は辞書ツール用。IME の再変換記録を上書きしない。
+    fun addEntry(
+            key: String,
+            value: String,
+            okurigana: String,
+            updateRollback: Boolean = true
+    ) {
         // 読み取り(find)も同じロック内で行う。
         // 外で読むと、直後に他スレッドの insert/commit が入った場合に
         // 古い値を元に新しい値を組み立ててしまう。
@@ -113,8 +123,10 @@ private constructor(
                         }
                     }
 
-            mOldKey = key
-            mOldValue = oldVal.orEmpty()
+            if (updateRollback) {
+                mOldKey = key
+                mOldValue = oldVal.orEmpty()
+            }
             mBTree?.insert(key, newVal, true)
             mRecMan?.commit()
         }
@@ -211,30 +223,145 @@ private constructor(
         }
     }
 
-    override fun close() {
-        safeRun { mRecMan?.commit() }
-        super.close()
-        mOldKey = ""
-        mOldValue = ""
-        mRecMan = null
-        mBTree = null
-    }
+    /** 全エントリを取得する。件数が多い場合は IO スレッドから呼ぶこと。 */
+    fun getAllEntries(): List<Pair<String, String>> =
+            safeRun {
+                val entries = mutableListOf<Pair<String, String>>()
+                val btree = mBTree ?: return@safeRun entries
+                val tuple = jdbm.helper.Tuple<String, String>()
+                val browser = btree.browse()
+                while (browser.getNext(tuple)) {
+                    entries.add(tuple.key to tuple.value)
+                }
+                entries
+            }
 
-    fun reopen() {
-        close()
-        openDB(mDictFile, mBtreeName).let {
-            mRecMan = it.first
-            mBTree = it.second
+    /** 件数を返す。 */
+    fun size(): Int = safeRun { mBTree?.size() ?: 0 }
+
+    /** キーごと削除する。 */
+    fun removeKey(key: String) {
+        safeRun {
+            mBTree?.remove(key)
+            mRecMan?.commit()
         }
     }
 
-    fun recreate() {
+    /**
+     * テキスト辞書を読み込む。
+     * ファイルの読み取りはロックの外で行い、1000 行ずつ BTree へ反映する。
+     * これにより、インポート中も IME の読み書きが長時間ブロックされない。
+     */
+    fun importFromText(
+            inputStream: InputStream,
+            charset: String,
+            isWordList: Boolean,
+            onProgress: (count: Int) -> Unit = {}
+    ): Boolean {
+        var generation = -1
+        val initial =
+                safeRun {
+                    generation = mGeneration
+                    mBTree
+                } ?: return false
+        val loader = TextDictLineLoader(isWordList, false, initial)
+        createTextDictReader(inputStream, charset).use { reader ->
+            val batch = ArrayList<String>(IMPORT_BATCH_SIZE)
+            var count = 0
+
+            fun applyBatch(): Boolean =
+                    safeRun {
+                        // 初期化（recreate）で BTree が差し替わっていたら、古い辞書には書かない。
+                        if (mGeneration != generation) return@safeRun false
+                        val recMan = mRecMan ?: return@safeRun false
+                        batch.forEach(loader::loadLine)
+                        recMan.commit()
+                        true
+                    }
+
+            while (true) {
+                val line = reader.readLine() ?: break
+                batch.add(line)
+                if (batch.size >= IMPORT_BATCH_SIZE) {
+                    if (!applyBatch()) return false
+                    count += batch.size
+                    batch.clear()
+                    onProgress(count)
+                }
+            }
+            if (batch.isNotEmpty()) {
+                if (!applyBatch()) return false
+                count += batch.size
+                onProgress(count)
+            }
+        }
+        return true
+    }
+
+    override fun close() {
+        safeRun {
+            try {
+                mRecMan?.commit()
+                mRecMan?.close()
+            } catch (e: IOException) {
+                Log.e("SKK", "Error closing user dictionary: $e")
+            }
+            mOldKey = ""
+            mOldValue = ""
+            mRecMan = null
+            mBTree = null
+            mGeneration++
+        }
+    }
+
+    /**
+     * 閉じたインスタンスを同じ参照のまま再オープンする。
+     * シングルトンを参照している IME / ツールを無効にしないために必要。
+     */
+    private fun reopenIfClosed() {
+        if (mRecMan != null && mBTree != null) return
+        safeRun {
+            if (mRecMan != null && mBTree != null) return@safeRun
+            try {
+                val (recMan, btree) = openDB(mDictFile, mBtreeName)
+                mRecMan = recMan
+                mBTree = btree
+                mGeneration++
+            } catch (e: Exception) {
+                Log.e("SKK", "Failed to reopen user dictionary: $e")
+            }
+        }
+    }
+
+    /** 辞書を開き直す。シングルトンなので、既に開いていれば何もしない。 */
+    fun reopen() {
+        reopenIfClosed()
+    }
+
+    /**
+     * 辞書を作り直す。
+     * @param extract ファイル削除後に呼ばれる処理（アセットからの再展開など）。
+     */
+    fun recreate(extract: (() -> Unit)? = null) {
         Log.e("SKK", "UserDict force recreate called.")
-        close()
-        java.io.File("$mDictFile.db").delete()
-        openDB(mDictFile, mBtreeName).let {
-            mRecMan = it.first
-            mBTree = it.second
+        safeRun {
+            try {
+                mRecMan?.commit()
+                mRecMan?.close()
+            } catch (e: IOException) {
+                Log.e("SKK", "Error closing user dictionary before recreate: $e")
+            }
+            mOldKey = ""
+            mOldValue = ""
+            mRecMan = null
+            mBTree = null
+            File("$mDictFile.db").delete()
+            File("$mDictFile.lg").delete()
+            extract?.invoke()
+            val (recMan, btree) = openDB(mDictFile, mBtreeName)
+            mRecMan = recMan
+            mBTree = btree
+            mGeneration++
         }
     }
 
@@ -242,6 +369,65 @@ private constructor(
             runBlocking(Dispatchers.IO) { mMutex.withLock { block() } }
 
     companion object {
+        private const val IMPORT_BATCH_SIZE = 1000
+
+        // プロセス内で同じ DB を 1 インスタンスに共有する。
+        // IME と辞書ツールが別々に open すると JDBM が壊れるため、所有者を 1 つにする。
+        private val sInstances = HashMap<String, SKKUserDictionary>()
+
+        /**
+         * 辞書の唯一の入口。同じファイルパスに対しては常に同じインスタンスを返す。
+         * @param extract DB が無いときにアセットから展開する処理（ASCII 辞書用）。
+         */
+        @Synchronized
+        fun getInstance(
+                dictFile: String,
+                btreeName: String,
+                isASCII: Boolean = false,
+                extract: (() -> Unit)? = null
+        ): SKKUserDictionary? {
+            val key = File(dictFile).absolutePath
+            sInstances[key]?.let { instance ->
+                instance.reopenIfClosed()
+                return instance
+            }
+            val dbFile = File("$dictFile.db")
+            if (isASCII && !dbFile.exists()) {
+                extract?.invoke()
+            }
+            val instance = openInstance(dictFile, btreeName, isASCII) ?: return null
+            sInstances[key] = instance
+            return instance
+        }
+
+        private fun openInstance(
+                dictFile: String,
+                btreeName: String,
+                isASCII: Boolean
+        ): SKKUserDictionary? =
+                try {
+                    val (recMan, btree) = openDB(dictFile, btreeName)
+                    SKKUserDictionary(recMan, btree, isASCII, dictFile, btreeName)
+                } catch (e: Exception) {
+                    // 破損時はファイル削除して再生成（1回だけリトライ）
+                    Log.e("SKK", "UserDict open failed, retrying: $e")
+                    File("$dictFile.db").delete()
+                    try {
+                        val (recMan, btree) = openDB(dictFile, btreeName)
+                        SKKUserDictionary(recMan, btree, isASCII, dictFile, btreeName)
+                    } catch (e2: Exception) {
+                        Log.e("SKK", "UserDict open failed after retry: $e2")
+                        null
+                    }
+                }
+
+        /** テスト専用。プロセス内シングルトンを破棄する。 */
+        @Synchronized
+        internal fun resetInstancesForTest() {
+            sInstances.values.forEach { runCatching { it.close() } }
+            sInstances.clear()
+        }
+
         fun openDB(
                 filename: String,
                 btreeName: String
@@ -272,33 +458,8 @@ private constructor(
             }
         }
 
-        fun newInstance(
-                context: SKKService,
-                mDictFile: String,
-                btreeName: String,
-                isASCII: Boolean
-        ): SKKUserDictionary? {
-            val dbFile = File("$mDictFile.db")
-            if (isASCII && !dbFile.exists()) {
-                context.extractDictionary(dbFile.nameWithoutExtension)
-            }
-            try {
-                val (recMan, btree) = openDB(mDictFile, btreeName)
-                return SKKUserDictionary(recMan, btree, isASCII, mDictFile, btreeName)
-            } catch (e: Exception) {
-                // 破損時はファイル削除して再生成（1回だけリトライ）
-                Log.e("SKK", "UserDict open failed, retrying: $e")
-                File("$mDictFile.db").delete()
-                return try {
-                    val (recMan, btree) = openDB(mDictFile, btreeName)
-                    SKKUserDictionary(recMan, btree, isASCII, mDictFile, btreeName)
-                } catch (e2: Exception) {
-                    Log.e("SKK", "UserDict open failed after retry: $e2")
-                    null
-                }
-            }
-        }
-        fun newInstanceFromOpenDB(
+        /** テスト専用。既に開いた DB をラップする（シングルトンには登録しない）。 */
+        internal fun newInstanceFromOpenDB(
                 recMan: RecordManager,
                 btree: BTree<String, String>,
                 dictFile: String,

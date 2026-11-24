@@ -2,12 +2,16 @@ package jp.deadend.noname.skk
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.InputStream
 import java.nio.file.Files
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +33,7 @@ class SKKUserDictionaryTest {
 
     @After
     fun tearDown() {
+        SKKUserDictionary.resetInstancesForTest()
         dict.close()
         dir.deleteRecursively()
     }
@@ -116,5 +121,134 @@ class SKKUserDictionaryTest {
         writer.join()
 
         assertTrue(dict.getEntry("かんじ")!!.candidates.isNotEmpty())
+    }
+
+    @Test
+    fun testGetInstanceReturnsSameInstanceForSameFile() {
+        // IME と辞書ツールが同じ DB を別々に開くと JDBM が壊れる。
+        // 同じパスに対しては必ず同じインスタンスを返すこと。
+        val path = File(dir, "shared").path
+        val first = SKKUserDictionary.getInstance(path, "user")
+        val second = SKKUserDictionary.getInstance(path, "user")
+
+        assertNotNull(first)
+        assertSame(first, second)
+    }
+
+    @Test
+    fun testGetInstanceReopensClosedInstance() {
+        val path = File(dir, "shared").path
+        val first = SKKUserDictionary.getInstance(path, "user")!!
+        first.addEntry("かんじ", "漢字", "")
+        first.close()
+
+        val second = SKKUserDictionary.getInstance(path, "user")!!
+
+        assertSame("同じ参照のまま再オープンする", first, second)
+        assertEquals(listOf("漢字"), second.getEntry("かんじ")!!.candidates)
+    }
+
+    @Test
+    fun testRecreateKeepsSameInstanceAndClearsEntries() {
+        val path = File(dir, "shared").path
+        val first = SKKUserDictionary.getInstance(path, "user")!!
+        first.addEntry("かんじ", "漢字", "")
+
+        first.recreate()
+
+        assertSame(first, SKKUserDictionary.getInstance(path, "user"))
+        assertNull(first.getEntry("かんじ"))
+    }
+
+    @Test
+    fun testGetAllEntries() {
+        dict.addEntry("かんじ", "漢字", "")
+        dict.addEntry("かんじる", "感じる", "")
+
+        val entries = dict.getAllEntries().toMap()
+
+        assertEquals("/漢字/", entries["かんじ"])
+        assertEquals("/感じる/", entries["かんじる"])
+    }
+
+    @Test
+    fun testRemoveKeyRemovesWholeEntry() {
+        dict.addEntry("かんじ", "漢字", "")
+        dict.addEntry("かんじ", "感じ", "")
+
+        dict.removeKey("かんじ")
+
+        assertNull(dict.getEntry("かんじ"))
+    }
+
+    @Test
+    fun testImportFromText() {
+        dict.importFromText(
+            "かんじ /漢字/\nかんじる /感じる/\n".byteInputStream(),
+            "UTF-8",
+            isWordList = false
+        ) {}
+
+        assertEquals(listOf("漢字"), dict.getEntry("かんじ")!!.candidates)
+        assertEquals(listOf("感じる"), dict.getEntry("かんじる")!!.candidates)
+    }
+
+    @Test
+    fun testImportFromTextInBatches() {
+        // バッチ境界（1000 行）をまたいでも全件登録されること。
+        val text = buildString {
+            repeat(2500) { i -> append("よみ$i /単語$i/\n") }
+        }
+        dict.importFromText(text.byteInputStream(), "UTF-8", isWordList = false) {}
+
+        assertEquals(2500, dict.size())
+        assertEquals(listOf("単語2499"), dict.getEntry("よみ2499")!!.candidates)
+    }
+
+    @Test
+    fun testImportAbortsWhenDictionaryIsRecreated() {
+        // インポート中に辞書が作り直されたら、古い BTree へ書き続けないこと。
+        val text = buildString {
+            repeat(2500) { i -> append("よみ$i /単語$i/\n") }
+        }
+        val source = ByteArrayInputStream(text.toByteArray())
+        var recreated = false
+        val stream =
+            object : InputStream() {
+                private fun maybeRecreate() {
+                    if (!recreated) {
+                        recreated = true
+                        dict.recreate()
+                    }
+                }
+
+                override fun read(): Int {
+                    maybeRecreate()
+                    return source.read()
+                }
+
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    maybeRecreate()
+                    return source.read(b, off, len)
+                }
+            }
+
+        val completed = dict.importFromText(stream, "UTF-8", false)
+
+        assertFalse("辞書が差し替わったら中断する", completed)
+        assertEquals(0, dict.size())
+    }
+
+    @Test
+    fun testToolAddDoesNotOverwriteRollbackState() {
+        // IME の変換で追加したエントリの rollback 情報を、ツールからの追加が
+        // 上書きしないこと。上書きされると rollBack() がツールの単語を消してしまう。
+        dict.addEntry("ほん", "本", "")
+        dict.addEntry("つーる", "ツール", "", updateRollback = false)
+
+        dict.rollBack()
+
+        assertNull("IME の追加が rollback される", dict.getEntry("ほん"))
+        assertEquals("ツールの追加は残る", listOf("ツール"), dict.getEntry("つーる")!!.candidates)
     }
 }

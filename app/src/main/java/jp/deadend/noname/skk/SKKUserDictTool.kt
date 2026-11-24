@@ -19,10 +19,6 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import jdbm.RecordManager
-import jdbm.RecordManagerFactory
-import jdbm.btree.BTree
-import jdbm.helper.StringComparator
 import jdbm.helper.Tuple
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
 import jp.deadend.noname.dialog.DictEntryDialogFragment
@@ -43,8 +39,7 @@ import kotlin.math.sqrt
 
 class SKKUserDictTool : AppCompatActivity() {
     private lateinit var mDictName: String
-    private var mRecMan: RecordManager? = null
-    private var mBtree: BTree<String, String>? = null
+    private var mUserDict: SKKUserDictionary? = null
     private var mEntryList = mutableListOf<Tuple<String, String>>()
     private var mFoundList = mutableListOf<Tuple<String, String>>()
     private lateinit var mAdapter: EntryAdapter
@@ -68,12 +63,13 @@ class SKKUserDictTool : AppCompatActivity() {
         mDatabaseJob.cancel()
         mDatabaseJob.invokeOnCompletion {
             mDatabaseJob = MainScope().launch(Dispatchers.IO) {
+                if (!openUserDict()) {
+                    mInFileLauncher = false
+                    throw CancellationException()
+                }
+                val dict = mUserDict ?: throw CancellationException()
                 withContext(Dispatchers.Main) {
                     mAdapter.clear()
-                    if (!openUserDict()) {
-                        mInFileLauncher = false
-                        throw CancellationException()
-                    }
                     mMenu.setGroupEnabled(0, false)
                 }
                 val name = getFileNameFromUri(this@SKKUserDictTool, uri)!!
@@ -95,19 +91,16 @@ class SKKUserDictTool : AppCompatActivity() {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val processedInputStream =
                             if (isGzip) GZIPInputStream(inputStream) else inputStream
-                        loadFromTextDict(
-                            processedInputStream,
-                            charset,
-                            isWordList,
-                            mRecMan!!,
-                            mBtree!!,
-                            false
-                        ) {
-                            if (floor(sqrt(it.toFloat())) % 50 == 0f) { // 味わい進捗
-                                MainScope().launch(Dispatchers.Main) {
-                                    mSearchView.queryHint = "インポート中 ${it}行目"
+                        val completed =
+                            dict.importFromText(processedInputStream, charset, isWordList) { count ->
+                                if (floor(sqrt(count.toFloat())) % 50 == 0f) { // 味わい進捗
+                                    MainScope().launch(Dispatchers.Main) {
+                                        mSearchView.queryHint = "インポート中 ${count}行目"
+                                    }
                                 }
                             }
+                        if (!completed) {
+                            dLog("import aborted: user dictionary was recreated")
                         }
                     }
                 } catch (e: IOException) {
@@ -156,23 +149,16 @@ class SKKUserDictTool : AppCompatActivity() {
         }
         mDatabaseJob.invokeOnCompletion {
             mDatabaseJob = MainScope().launch(Dispatchers.IO) {
-                withContext(Dispatchers.Main) {
-                    if (!openUserDict()) {
-                        mInFileLauncher = false
-                        throw CancellationException()
-                    }
+                if (!openUserDict()) {
+                    mInFileLauncher = false
+                    throw CancellationException()
                 }
                 var errorMessage = ""
                 try {
-                    contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use {
-                        val browser = mBtree!!.browse()
-                        if (browser == null) withContext(Dispatchers.Main) {
-                            throw (IOException("database browser is null"))
-                        } else {
-                            val tuple = Tuple<String, String>()
-                            while (browser.getNext(tuple)) {
-                                it.write("${tuple.key} ${tuple.value}\n")
-                            }
+                    val entries = mUserDict?.getAllEntries() ?: emptyList()
+                    contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { writer ->
+                        entries.forEach { (key, value) ->
+                            writer.write("$key $value\n")
                         }
                     }
                 } catch (e: Exception) {
@@ -242,21 +228,25 @@ class SKKUserDictTool : AppCompatActivity() {
                     object : ConfirmationDialogFragment.Listener {
                         override fun onPositiveClick() {
                             val adapter = parent.adapter as EntryAdapter
-                            val item = adapter.getItem(position)!!
+                            val item = adapter.getItem(position) ?: return
                             dLog("remove $item from $mDictName")
-                            try {
-                                if (openUserDict()) {
-                                    mBtree?.remove(item.key)
-                                    mEntryList.remove(item)
-                                    mFoundList.remove(item)
-                                    adapter.notifyDataSetChanged()
+                            MainScope().launch(Dispatchers.IO) {
+                                try {
+                                    if (openUserDict()) {
+                                        mUserDict?.removeKey(item.key)
+                                        withContext(Dispatchers.Main) {
+                                            mEntryList.remove(item)
+                                            mFoundList.remove(item)
+                                            adapter.notifyDataSetChanged()
+                                        }
+                                    }
+                                    closeUserDict()
+                                } catch (e: Exception) {
+                                    Log.e(
+                                        "SKK",
+                                        "UserDictTool error removing ${item.key}: ${e.message}"
+                                    )
                                 }
-                                closeUserDict()
-                            } catch (e: Exception) {
-                                Log.e(
-                                    "SKK",
-                                    "UserDictTool error removing ${item.key}: ${e.message}"
-                                )
                             }
                         }
 
@@ -330,26 +320,24 @@ class SKKUserDictTool : AppCompatActivity() {
                 val dialog = DictEntryDialogFragment.newInstance("エントリの追加")
                 dialog.setListener(object : DictEntryDialogFragment.Listener {
                     override fun onPositiveClick(key: String, value: String) {
-                        try {
-                            if (openUserDict()) {
-                                mBtree?.let { btree ->
-                                    val oldVal = btree.find(key)
-                                    val newVal = if (oldVal != null && oldVal.contains("/$value/")) {
-                                        oldVal // already exists
-                                    } else if (oldVal != null) {
-                                        "/$value" + oldVal // prepend new candidate
-                                    } else {
-                                        "/$value/"
-                                    }
-                                    btree.insert(key, newVal, true)
-                                    mRecMan?.commit()
+                        MainScope().launch(Dispatchers.IO) {
+                            try {
+                                if (openUserDict()) {
+                                    // addEntry は新しい候補を先頭に追加し、重複を除く。
+                                    // ツールからの編集で IME の再変換記録を上書きしない。
+                                    mUserDict?.addEntry(
+                                        key,
+                                        value,
+                                        "",
+                                        updateRollback = false
+                                    )
                                 }
+                                closeUserDict()
+                            } catch (e: Exception) {
+                                Log.e("SKK", "UserDictTool error adding entry: ${e.message}")
                             }
-                            closeUserDict()
-                        } catch (e: Exception) {
-                            Log.e("SKK", "UserDictTool error adding entry: ${e.message}")
+                            withContext(Dispatchers.Main) { updateListItems() }
                         }
-                        updateListItems()
                     }
                     override fun onNegativeClick() {}
                 })
@@ -432,34 +420,27 @@ class SKKUserDictTool : AppCompatActivity() {
         mAdapter.clear()
 
         MainScope().launch(Dispatchers.IO) {
-            deleteFile("$mDictName.db")
-            deleteFile("$mDictName.lg")
-
-            if (extract) {
-                try {
-                    unzipFile(resources.assets.open("$mDictName.zip"), filesDir)
-                    dLog("$mDictName.zip extracted")
-                } catch (e: IOException) {
-                    Log.e("SKK", "I/O error in extracting $mDictName.zip: $e")
-                }
-                withContext(Dispatchers.Main) {
+            if (!openUserDict()) return@launch
+            try {
+                mUserDict?.recreate(
+                    if (extract) {
+                        {
+                            try {
+                                unzipFile(resources.assets.open("$mDictName.zip"), filesDir)
+                                dLog("$mDictName.zip extracted")
+                            } catch (e: IOException) {
+                                Log.e("SKK", "I/O error in extracting $mDictName.zip: $e")
+                            }
+                        }
+                    } else null
+                )
+            } catch (e: Exception) {
+                Log.e("SKK", "UserDictTool error recreating $mDictName: ${e.message}")
+            }
+            withContext(Dispatchers.Main) {
+                if (extract) {
                     updateListItems()
-                }
-            } else {
-                try {
-                    mRecMan =
-                        RecordManagerFactory.createRecordManager(filesDir.absolutePath + "/" + mDictName)
-                    mBtree = BTree(mRecMan, StringComparator())
-                    mRecMan!!.setNamedObject(getString(R.string.btree_name), mBtree!!.recordId)
-                    mRecMan!!.commit()
-                    mRecMan!!.close()
-                    mBtree = null
-                    mRecMan = null
-                } catch (e: IOException) {
-                    throw RuntimeException(e)
-                }
-                dLog("New user dictionary created")
-                withContext(Dispatchers.Main) {
+                } else {
                     mAdapter.clear() // どうせ空なので updateListItems() 不要
                 }
             }
@@ -467,79 +448,66 @@ class SKKUserDictTool : AppCompatActivity() {
     }
 
     private fun onFailToOpenUserDict() {
-        mBtree = null
-        mRecMan = null
+        mUserDict = null
+        MainScope().launch(Dispatchers.Main) {
+            ConfirmationDialogFragment.newInstance(getString(R.string.error_tools_open_user_dict))
+                .let {
+                    it.setListener(
+                        object : ConfirmationDialogFragment.Listener {
+                            override fun onPositiveClick() {
+                                recreateUserDict(extract = false)
+                            }
 
-        ConfirmationDialogFragment.newInstance(getString(R.string.error_tools_open_user_dict)).let {
-            it.setListener(
-                object : ConfirmationDialogFragment.Listener {
-                    override fun onPositiveClick() {
-                        recreateUserDict(extract = false)
-                    }
-
-                    override fun onNegativeClick() {
-                        startServiceCommand(SKKService.COMMAND_RELOAD_DICT)
-                        finish()
-                    }
-                })
-            it.show(supportFragmentManager, "dialog")
+                            override fun onNegativeClick() {
+                                startServiceCommand(SKKService.COMMAND_RELOAD_DICT)
+                                finish()
+                            }
+                        })
+                    it.show(supportFragmentManager, "dialog")
+                }
         }
     }
 
     private fun openUserDict(): Boolean {
-        if (mBtree != null) {
-            Log.e("SKK", "openUserDict error: already opened")
-            onFailToOpenUserDict()
-            return false
+        mUserDict?.let {
+            return true
         }
-
-        // onPause() か finish() で reload するまで service / engine から使用できなくする
-        // ただし、この時点で service が開始していなかった場合
-        // この後から開始した service / engine からは使用できるようになってしまう
-        // それを防ぐには、わざわざユーザー辞書の使えない状態で startService する必要がある
-        // が、実装も面倒だしテストもしづらくなるので放置しておくことにする
-        startServiceCommand(SKKService.COMMAND_CLOSE_USER_DICT)
-
-        val recID: Long?
-        try {
-            mRecMan = RecordManagerFactory.createRecordManager(
-                filesDir.absolutePath + "/" + mDictName
-            )
-            recID = mRecMan!!.getNamedObject(getString(R.string.btree_name))
-        } catch (e: IOException) {
-            Log.e("SKK", "openUserDict error creating mRecMan: ${e.message}")
-            onFailToOpenUserDict()
-            return false
-        }
-
-        if (recID == 0L) {
-            Log.e("SKK", "openUserDict error: recID==0")
-            onFailToOpenUserDict()
-            return false
-        } else {
+        val isASCII = mDictName == getString(R.string.dict_name_ascii)
+        val dict =
             try {
-                mBtree = BTree<String, String>().load(mRecMan, recID)
-            } catch (e: IOException) {
-                Log.e("SKK", "openUserDict error loading mBtree: ${e.message}")
-                onFailToOpenUserDict()
-                return false
+                SKKUserDictionary.getInstance(
+                    filesDir.absolutePath + "/" + mDictName,
+                    getString(R.string.btree_name),
+                    isASCII
+                ) {
+                    try {
+                        unzipFile(resources.assets.open("$mDictName.zip"), filesDir)
+                    } catch (e: IOException) {
+                        Log.e("SKK", "I/O error in extracting $mDictName.zip: $e")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SKK", "openUserDict error: ${e.message}")
+                null
             }
+        if (dict == null) {
+            Log.e("SKK", "openUserDict error: failed to open $mDictName")
+            onFailToOpenUserDict()
+            return false
         }
+        mUserDict = dict
         dLog("UserDictTool: opened")
         return true
     }
 
+    /**
+     * シングルトンへの参照を落とす。DB 自体は IME と共有したまま閉じない。
+     * 書き込みは各 API が commit 済みなので、ここで flush はしない
+     * （インポート中にメインスレッドがロック待ちになるのを避ける）。
+     */
     private fun closeUserDict() {
-        mBtree = null
-        try {
-            mRecMan?.commit()
-            mRecMan?.close()
-            mRecMan = null
-        } catch (e: IOException) {
-            startServiceCommand(SKKService.COMMAND_RELOAD_DICT)
-            throw RuntimeException("closeUserDict error closing mRecMan: ${e.message}")
-        }
-        dLog("UserDictTool: closed")
+        mUserDict = null
+        dLog("UserDictTool: detached")
     }
 
     private fun updateListItems() {
@@ -549,39 +517,17 @@ class SKKUserDictTool : AppCompatActivity() {
         mDatabaseJob.invokeOnCompletion {
             mSearchView.isEnabled = false
             mDatabaseJob = MainScope().launch(Dispatchers.IO) {
-                withContext(Dispatchers.Main) {
-                    mAdapter.clear()
-                    if (!openUserDict()) {
-                        throw CancellationException()
-                    }
+                if (!openUserDict()) {
+                    withContext(Dispatchers.Main) { mSearchView.isEnabled = true }
+                    return@launch
                 }
                 try {
-                    val browser = mBtree?.browse()
-                    if (browser == null) {
-                        Log.e("SKK", "UserDictTool updateListItems: browser=null")
-                        withContext(Dispatchers.Main) { onFailToOpenUserDict() }
-                        return@launch
-                    }
-
-                    val tuple = Tuple<String, String>()
-                    val buffer = mutableListOf<Tuple<String, String>>()
-                    val bufferSize = 1000
-                    while (browser.getNext(tuple)) {
-                        buffer.add(Tuple(tuple.key, tuple.value))
-                        if (buffer.size < bufferSize) continue
-                        withContext(Dispatchers.Main) {
-                            mAdapter.addAll(buffer)
-                            mBtree.let { bt ->
-                                if (bt == null) throw CancellationException()
-                                mSearchView.queryHint =
-                                    "読み込み中 ${100 * mAdapter.count / bt.size()}%"
-                            }
-                        }
-                        buffer.clear()
-                        ensureActive()
-                    }
+                    val items =
+                        mUserDict?.getAllEntries()?.map { Tuple(it.first, it.second) }
+                            ?: emptyList()
                     withContext(Dispatchers.Main) {
-                        mAdapter.addAll(buffer)
+                        mAdapter.clear()
+                        mAdapter.addAll(items)
                         mSearchView.isEnabled = true
                         mSearchView.queryHint = ""
                     }
@@ -605,11 +551,6 @@ class SKKUserDictTool : AppCompatActivity() {
             val intent = Intent(this@SKKUserDictTool, SKKService::class.java)
             intent.putExtra(SKKService.KEY_COMMAND, command)
             startService(intent)
-            try {
-                Thread.sleep(mDelay) // 本当は結果を待つのが正しい
-            } catch (e: InterruptedException) {
-                dLog("sleep was interrupted: ${e.message}")
-            }
         }
     }
 

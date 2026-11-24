@@ -57,21 +57,34 @@ internal fun isTextDictInEucJp(inputStream: InputStream): Boolean {
     return !failed
 }
 
-@Throws(IOException::class)
-internal fun loadFromTextDict(
+internal fun createTextDictReader(
     inputStream: InputStream,
-    charset: String,
-    isWordList: Boolean,
-    recMan: RecordManager,
-    btree: BTree<String, String>,
-    overwrite: Boolean,
-    callback: (count: Int) -> Unit
-) {
+    charset: String
+): BufferedReader {
     val decoder = Charset.forName(charset).newDecoder()
     decoder.onMalformedInput(CodingErrorAction.REPORT)
     decoder.onUnmappableCharacter(CodingErrorAction.REPLACE)
+    return BufferedReader(InputStreamReader(inputStream, decoder))
+}
 
-    val loadSKKLine = fun(line: String) {
+/**
+ * テキスト辞書の 1 行を BTree へ反映する。
+ * 行をまたぐ状態（word list の前回キーなど）を持つため、途中で作り直さずに使うこと。
+ */
+internal class TextDictLineLoader(
+    private val isWordList: Boolean,
+    private val overwrite: Boolean,
+    private val btree: BTree<String, String>
+) {
+    private var prevKey = ""
+    private var prevFreq = 0
+    private var isShortCut = false
+
+    fun loadLine(line: String) {
+        if (isWordList) loadWordListLine(line) else loadSKKLine(line)
+    }
+
+    private fun loadSKKLine(line: String) {
         val idx = line.indexOf(' ')
         if (idx != -1 && !line.startsWith(";;")) {
             val key = line.take(idx)
@@ -84,10 +97,7 @@ internal fun loadFromTextDict(
         }
     }
 
-    var prevKey = ""
-    var prevFreq = 0
-    var isShortCut: Boolean
-    val loadWordListLine = fun(line: String) {
+    private fun loadWordListLine(line: String) {
         val csv = line.split(',', '=')
         if (csv.size < 4) return
         val key = csv[1]
@@ -98,7 +108,6 @@ internal fun loadFromTextDict(
                 0
             }
             prevKey = key
-            @Suppress("AssignedValueIsNeverRead")
             prevFreq = f
             isShortCut = false
             if ("not_a_word" in csv) {
@@ -135,12 +144,23 @@ internal fun loadFromTextDict(
                 .let { btree.insert(prevKey, "/$it/", true) }
         }
     }
+}
 
-    val loadLine = if (isWordList) loadWordListLine else loadSKKLine
-    BufferedReader(InputStreamReader(inputStream, decoder)).use { bufferedReader ->
+@Throws(IOException::class)
+internal fun loadFromTextDict(
+    inputStream: InputStream,
+    charset: String,
+    isWordList: Boolean,
+    recMan: RecordManager,
+    btree: BTree<String, String>,
+    overwrite: Boolean,
+    callback: (count: Int) -> Unit
+) {
+    val loader = TextDictLineLoader(isWordList, overwrite, btree)
+    createTextDictReader(inputStream, charset).use { bufferedReader ->
         var count = 0
         bufferedReader.forEachLine { line ->
-            loadLine(line)
+            loader.loadLine(line)
             callback(count)
             if (++count % 1000 == 0) {
                 recMan.commit()

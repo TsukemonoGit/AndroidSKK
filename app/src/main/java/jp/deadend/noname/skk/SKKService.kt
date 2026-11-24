@@ -304,12 +304,13 @@ class SKKService : InputMethodService() {
         // B1+B3修正: null許容型にして、nullの場合はsuper.onDestroy()を呼ばずnullを返す
         fun openUserDictionary(name: String, isASCII: Boolean): SKKUserDictionary? {
             val dict =
-                    SKKUserDictionary.newInstance(
-                            this@SKKService,
+                    SKKUserDictionary.getInstance(
                             filesDir.absolutePath + "/" + name,
                             getString(R.string.btree_name),
                             isASCII
-                    )
+                    ) {
+                        extractDictionary(name)
+                    }
             if (dict == null) {
                 val intent =
                         Intent(applicationContext, SKKSettingsActivity::class.java)
