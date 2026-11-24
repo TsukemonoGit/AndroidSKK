@@ -61,6 +61,7 @@ class SKKSettingsActivityTest {
             SimpleMessageDialogFragment.newInstance("test"),
             "test_dialog"
         )
+        activity.supportFragmentManager.executePendingTransactions()
 
         assertNull(activity.supportFragmentManager.findFragmentByTag("test_dialog"))
     }

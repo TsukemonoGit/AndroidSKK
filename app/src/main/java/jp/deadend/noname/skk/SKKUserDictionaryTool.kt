@@ -15,6 +15,7 @@ import jp.deadend.noname.dialog.SimpleMessageDialogFragment
 import jp.deadend.noname.dialog.showDialogSafely
 import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -48,8 +49,14 @@ class SKKUserDictionaryTool : AppCompatActivity() {
 
                 contentResolver.openInputStream(uri)?.use { stream ->
                     val processedStream = if (isGzip) java.util.zip.GZIPInputStream(stream) else stream
-                    if (!dict.importFromText(processedStream, charset, isWordList)) {
-                        Log.w("SKK", "import aborted: user dictionary was recreated")
+                    if (!dict.importFromText(
+                            processedStream,
+                            charset,
+                            isWordList,
+                            shouldContinue = { isActive }
+                        )
+                    ) {
+                        Log.w("SKK", "import aborted: user dictionary was recreated or activity destroyed")
                     }
                 }
             } catch (e: Exception) {

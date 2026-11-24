@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -93,7 +94,12 @@ class SKKUserDictTool : AppCompatActivity() {
                         val processedInputStream =
                             if (isGzip) GZIPInputStream(inputStream) else inputStream
                         val completed =
-                            dict.importFromText(processedInputStream, charset, isWordList) { count ->
+                            dict.importFromText(
+                                processedInputStream,
+                                charset,
+                                isWordList,
+                                shouldContinue = { isActive }
+                            ) { count ->
                                 if (floor(sqrt(count.toFloat())) % 50 == 0f) { // 味わい進捗
                                     lifecycleScope.launch(Dispatchers.Main) {
                                         mSearchView.queryHint = "インポート中 ${count}行目"

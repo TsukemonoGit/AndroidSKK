@@ -435,6 +435,7 @@ class SKKDictManager : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val item = mDictList[position]
             var recMan: RecordManager? = null
+            var completed = false
             try {
                 recMan =
                         RecordManagerFactory.createRecordManager(
@@ -474,6 +475,9 @@ class SKKDictManager : AppCompatActivity() {
                         }
                     }
                 }
+                // 読み込みが完了したら、その後の UI 更新がキャンセルされても
+                // 辞書ファイルは完成品として残す。
+                completed = true
                 withContext(Dispatchers.Main) {
                     val newList = mDictList.toMutableList()
                     newList[position] = item
@@ -481,6 +485,7 @@ class SKKDictManager : AppCompatActivity() {
                     mDictList = newList
                 }
             } catch (e: IOException) {
+                Log.e("SKK", "SKKDictManager#loadDict() Error: $e")
                 withContext(Dispatchers.Main) {
                     val message =
                             if (e is CharacterCodingException) {
@@ -496,25 +501,20 @@ class SKKDictManager : AppCompatActivity() {
                     mAdapter.submitList(newList)
                     mDictList = newList
                 }
-                Log.e("SKK", "SKKDictManager#loadDict() Error: $e")
-                if (recMan != null) {
-                    try {
-                        recMan.close()
-                    } catch (ee: IOException) {
-                        Log.e("SKK", "SKKDictManager#loadDict() can't close(): $ee")
-                    }
+            } finally {
+                // キャンセル（画面破棄）でも DB を閉じ、未完成ファイルを残さない。
+                try {
+                    recMan?.close()
+                } catch (ee: IOException) {
+                    Log.e("SKK", "SKKDictManager#loadDict() can't close(): $ee")
                 }
-                deleteFile("$dictFileBaseName.db")
-                deleteFile("$dictFileBaseName.lg")
-                return@launch
+                if (!completed) {
+                    deleteFile("$dictFileBaseName.db")
+                    deleteFile("$dictFileBaseName.lg")
+                }
             }
 
-            try {
-                recMan.close()
-            } catch (ee: IOException) {
-                Log.e("SKK", "SKKDictManager#loadDict() can't close(): $ee")
-                return@launch
-            }
+            if (!completed) return@launch
 
             withContext(Dispatchers.Main) { addDict(dictFileBaseName.removePrefix("/"), position) }
         }
