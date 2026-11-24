@@ -9,6 +9,7 @@ import jp.deadend.noname.skk.SKKHistoryDictionary
 import jp.deadend.noname.skk.SKKService
 import jp.deadend.noname.skk.SKKUserDictionary
 import jp.deadend.noname.skk.dLog
+import jp.deadend.noname.skk.vLog
 import jp.deadend.noname.skk.hankaku2zenkaku
 import jp.deadend.noname.skk.hiragana2katakana
 import jp.deadend.noname.skk.isAlphabet
@@ -153,10 +154,10 @@ class SKKEngine(
         val isKanji = state is SKKKanjiState
         val isChoose = state is SKKChooseState
         val msg = "processKey: code=$keyCode char='$keyChar' state=$stateName kanji=$isKanji choose=$isChoose compose='${mComposing.toString()}' kanjiKey='${mKanjiKey.toString()}'"
-        dLog("SKKEngine: $msg")
+        vLog("SKKEngine: $msg")
         state.processKey(this, keyCode)
         val newStateName = state.javaClass.simpleName
-        dLog("SKKEngine: ->after state=$newStateName compose='${mComposing.toString()}' kanjiKey='${mKanjiKey.toString()}'")
+        vLog("SKKEngine: ->after state=$newStateName compose='${mComposing.toString()}' kanjiKey='${mKanjiKey.toString()}'")
     }
 
     fun handleKanaKey() = state.handleKanaKey(this)

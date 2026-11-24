@@ -14,6 +14,13 @@ import org.junit.Test
 class RomajiConverterTest {
 
     @Test
+    fun testRomajiEntriesHaveNoDuplicateKeys() {
+        // mapOf / toMap は後勝ちで重複を隠すため、元のリストで検出する。
+        val keys = RomajiConverter.mRomajiEntries.map { it.first }
+        assertEquals(keys.size, keys.toSet().size)
+    }
+
+    @Test
     fun testConvert() {
         assertEquals("", RomajiConverter.convert(""))
         assertEquals("あ", RomajiConverter.convert("a"))

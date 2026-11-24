@@ -47,6 +47,8 @@ class SKKHistoryDictionary private constructor(
             }
     private val mBgScope = CoroutineScope(SupervisorJob() + mPersistExecutor.asCoroutineDispatcher())
     private fun logDbFileState(tag: String) {
+        // 高頻度でファイル stat を伴うため、-PverboseLog=true の debug ビルドだけ出す。
+        if (!BuildConfig.DEBUG || !BuildConfig.VERBOSE_LOG) return
         try {
             val dbFile = File("$mDictFile.db")
             val exists = dbFile.exists()
