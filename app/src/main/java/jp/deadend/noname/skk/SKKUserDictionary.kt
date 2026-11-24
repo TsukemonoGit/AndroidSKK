@@ -256,6 +256,7 @@ private constructor(
             inputStream: InputStream,
             charset: String,
             isWordList: Boolean,
+            shouldContinue: () -> Boolean = { true },
             onProgress: (count: Int) -> Unit = {}
     ): Boolean {
         var generation = -1
@@ -271,6 +272,8 @@ private constructor(
 
             fun applyBatch(): Boolean =
                     safeRun {
+                        // 呼び出し元（Activity など）が破棄されていたら書き込みを止める。
+                        if (!shouldContinue()) return@safeRun false
                         // 初期化（recreate）で BTree が差し替わっていたら、古い辞書には書かない。
                         if (mGeneration != generation) return@safeRun false
                         val recMan = mRecMan ?: return@safeRun false

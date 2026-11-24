@@ -12,8 +12,10 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
 import jp.deadend.noname.dialog.SimpleMessageDialogFragment
+import jp.deadend.noname.dialog.showDialogSafely
 import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -47,16 +49,25 @@ class SKKUserDictionaryTool : AppCompatActivity() {
 
                 contentResolver.openInputStream(uri)?.use { stream ->
                     val processedStream = if (isGzip) java.util.zip.GZIPInputStream(stream) else stream
-                    if (!dict.importFromText(processedStream, charset, isWordList)) {
-                        Log.w("SKK", "import aborted: user dictionary was recreated")
+                    if (!dict.importFromText(
+                            processedStream,
+                            charset,
+                            isWordList,
+                            shouldContinue = { isActive }
+                        )
+                    ) {
+                        Log.w("SKK", "import aborted: user dictionary was recreated or activity destroyed")
                     }
                 }
             } catch (e: Exception) {
                 Log.e("SKK", "UserDictionaryTool import error: $e")
                 withContext(Dispatchers.Main) {
-                    SimpleMessageDialogFragment.newInstance(
-                        getString(R.string.error_file_load, e.message ?: "(null)")
-                    ).show(supportFragmentManager, "dialog")
+                    showDialogSafely(
+                        SimpleMessageDialogFragment.newInstance(
+                            getString(R.string.error_file_load, e.message ?: "(null)")
+                        ),
+                        "dialog"
+                    )
                 }
             } finally {
                 val loaded = loadEntryList()
@@ -96,9 +107,12 @@ class SKKUserDictionaryTool : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("SKK", "UserDictionaryTool export error: $e")
                 withContext(Dispatchers.Main) {
-                    SimpleMessageDialogFragment.newInstance(
-                        getString(R.string.error_write_to_external_storage, e.message ?: "(null)")
-                    ).show(supportFragmentManager, "dialog")
+                    showDialogSafely(
+                        SimpleMessageDialogFragment.newInstance(
+                            getString(R.string.error_write_to_external_storage, e.message ?: "(null)")
+                        ),
+                        "dialog"
+                    )
                 }
             }
         }
@@ -167,7 +181,7 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                 }
                 override fun onNegativeClick() {}
             })
-            dialog.show(supportFragmentManager, "dialog")
+            showDialogSafely(dialog, "dialog")
         }
 
         lifecycleScope.launch {
@@ -209,7 +223,7 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                     }
                     override fun onNegativeClick() {}
                 })
-                dialog.show(supportFragmentManager, "add_entry")
+                showDialogSafely(dialog, "add_entry")
                 return true
             }
             R.id.menu_userdict_tool_import -> {
@@ -240,7 +254,7 @@ class SKKUserDictionaryTool : AppCompatActivity() {
                             override fun onNegativeClick() {}
                         }
                 )
-                dialog.show(supportFragmentManager, "clear_dialog")
+                showDialogSafely(dialog, "clear_dialog")
                 return true
             }
         }
@@ -269,9 +283,12 @@ class SKKUserDictionaryTool : AppCompatActivity() {
             }
         if (dict == null) {
             withContext(Dispatchers.Main) {
-                SimpleMessageDialogFragment.newInstance(
-                    getString(R.string.error_tools_open_user_dict)
-                ).show(supportFragmentManager, "dialog")
+                showDialogSafely(
+                    SimpleMessageDialogFragment.newInstance(
+                        getString(R.string.error_tools_open_user_dict)
+                    ),
+                    "dialog"
+                )
             }
         }
         mUserDict = dict

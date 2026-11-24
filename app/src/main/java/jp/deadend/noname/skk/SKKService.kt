@@ -52,7 +52,6 @@ import jp.deadend.noname.skk.engine.SKKKanjiState
 import jp.deadend.noname.skk.engine.SKKKatakanaState
 import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
 class SKKService : InputMethodService() {

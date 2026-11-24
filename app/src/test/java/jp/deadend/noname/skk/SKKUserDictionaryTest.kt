@@ -240,6 +240,26 @@ class SKKUserDictionaryTest {
     }
 
     @Test
+    fun testImportAbortsWhenCallerCancels() {
+        // 画面破棄などで呼び出し元がキャンセルされたら、次のバッチから書き込みを止める。
+        val text = buildString {
+            repeat(2500) { i -> append("よみ$i /単語$i/\n") }
+        }
+        var calls = 0
+
+        val completed =
+            dict.importFromText(
+                ByteArrayInputStream(text.toByteArray()),
+                "UTF-8",
+                false,
+                shouldContinue = { calls++ < 1 }
+            )
+
+        assertFalse("キャンセルされたら中断する", completed)
+        assertEquals(1000, dict.size())
+    }
+
+    @Test
     fun testToolAddDoesNotOverwriteRollbackState() {
         // IME の変換で追加したエントリの rollback 情報を、ツールからの追加が
         // 上書きしないこと。上書きされると rollBack() がツールの単語を消してしまう。
