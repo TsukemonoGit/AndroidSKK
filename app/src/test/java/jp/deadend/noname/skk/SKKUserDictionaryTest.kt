@@ -2,13 +2,16 @@ package jp.deadend.noname.skk
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.InputStream
 import java.nio.file.Files
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -200,6 +203,40 @@ class SKKUserDictionaryTest {
 
         assertEquals(2500, dict.size())
         assertEquals(listOf("単語2499"), dict.getEntry("よみ2499")!!.candidates)
+    }
+
+    @Test
+    fun testImportAbortsWhenDictionaryIsRecreated() {
+        // インポート中に辞書が作り直されたら、古い BTree へ書き続けないこと。
+        val text = buildString {
+            repeat(2500) { i -> append("よみ$i /単語$i/\n") }
+        }
+        val source = ByteArrayInputStream(text.toByteArray())
+        var recreated = false
+        val stream =
+            object : InputStream() {
+                private fun maybeRecreate() {
+                    if (!recreated) {
+                        recreated = true
+                        dict.recreate()
+                    }
+                }
+
+                override fun read(): Int {
+                    maybeRecreate()
+                    return source.read()
+                }
+
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    maybeRecreate()
+                    return source.read(b, off, len)
+                }
+            }
+
+        val completed = dict.importFromText(stream, "UTF-8", false)
+
+        assertFalse("辞書が差し替わったら中断する", completed)
+        assertEquals(0, dict.size())
     }
 
     @Test

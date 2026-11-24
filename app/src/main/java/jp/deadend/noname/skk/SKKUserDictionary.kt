@@ -273,8 +273,9 @@ private constructor(
                     safeRun {
                         // 初期化（recreate）で BTree が差し替わっていたら、古い辞書には書かない。
                         if (mGeneration != generation) return@safeRun false
+                        val recMan = mRecMan ?: return@safeRun false
                         batch.forEach(loader::loadLine)
-                        mRecMan?.commit()
+                        recMan.commit()
                         true
                     }
 
@@ -325,6 +326,7 @@ private constructor(
                 val (recMan, btree) = openDB(mDictFile, mBtreeName)
                 mRecMan = recMan
                 mBTree = btree
+                mGeneration++
             } catch (e: Exception) {
                 Log.e("SKK", "Failed to reopen user dictionary: $e")
             }
@@ -359,6 +361,7 @@ private constructor(
             val (recMan, btree) = openDB(mDictFile, mBtreeName)
             mRecMan = recMan
             mBTree = btree
+            mGeneration++
         }
     }
 

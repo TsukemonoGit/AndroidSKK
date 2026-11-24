@@ -47,7 +47,9 @@ class SKKUserDictionaryTool : AppCompatActivity() {
 
                 contentResolver.openInputStream(uri)?.use { stream ->
                     val processedStream = if (isGzip) java.util.zip.GZIPInputStream(stream) else stream
-                    dict.importFromText(processedStream, charset, isWordList)
+                    if (!dict.importFromText(processedStream, charset, isWordList)) {
+                        Log.w("SKK", "import aborted: user dictionary was recreated")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("SKK", "UserDictionaryTool import error: $e")

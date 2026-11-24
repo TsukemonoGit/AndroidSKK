@@ -91,12 +91,16 @@ class SKKUserDictTool : AppCompatActivity() {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val processedInputStream =
                             if (isGzip) GZIPInputStream(inputStream) else inputStream
-                        dict.importFromText(processedInputStream, charset, isWordList) { count ->
-                            if (floor(sqrt(count.toFloat())) % 50 == 0f) { // 味わい進捗
-                                MainScope().launch(Dispatchers.Main) {
-                                    mSearchView.queryHint = "インポート中 ${count}行目"
+                        val completed =
+                            dict.importFromText(processedInputStream, charset, isWordList) { count ->
+                                if (floor(sqrt(count.toFloat())) % 50 == 0f) { // 味わい進捗
+                                    MainScope().launch(Dispatchers.Main) {
+                                        mSearchView.queryHint = "インポート中 ${count}行目"
+                                    }
                                 }
                             }
+                        if (!completed) {
+                            dLog("import aborted: user dictionary was recreated")
                         }
                     }
                 } catch (e: IOException) {
