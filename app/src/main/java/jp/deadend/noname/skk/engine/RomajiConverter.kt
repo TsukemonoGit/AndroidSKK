@@ -13,7 +13,7 @@ import jp.deadend.noname.skk.skkPrefs
 import jp.deadend.noname.skk.SKKApplication
 
 object RomajiConverter {
-    private val mRomajiMap = mapOf(
+    internal val mRomajiEntries: List<Pair<String, String>> = listOf(
         "a" to "あ", "i" to "い", "u" to "う", "e" to "え", "o" to "お",
         "ka" to "か", "ki" to "き", "ku" to "く", "ke" to "け", "ko" to "こ",
         "sa" to "さ", "si" to "し", "su" to "す", "se" to "せ", "so" to "そ",
@@ -45,7 +45,6 @@ object RomajiConverter {
         "ja" to "じゃ", "ji" to "じ", "ju" to "じゅ", "je" to "じぇ", "jo" to "じょ",
         "jya" to "じゃ", "jyi" to "じぃ", "jyu" to "じゅ", "jye" to "じぇ", "jyo" to "じょ",
         "zya" to "じゃ", "zyi" to "じぃ", "zyu" to "じゅ", "zye" to "じぇ", "zyo" to "じょ",
-        "cha" to "ちゃ", "chi" to "ち", "chu" to "ちゅ", "che" to "ちぇ", "cho" to "ちょ",
         "tya" to "ちゃ", "tyi" to "ちぃ", "tyu" to "ちゅ", "tye" to "ちぇ", "tyo" to "ちょ",
         "tha" to "てゃ", "thi" to "てぃ", "thu" to "てゅ", "the" to "てぇ", "tho" to "てょ",
         "dha" to "でゃ", "dhi" to "でぃ", "dhu" to "でゅ", "dhe" to "でぇ", "dho" to "でょ",
@@ -59,6 +58,8 @@ object RomajiConverter {
         "z," to "‥", "z-" to "〜", "z." to "…", "z/" to "・", "z[" to "『",
         "z]" to "』", "zh" to "←", "zj" to "↓", "zk" to "↑", "zl" to "→",
     )
+
+    private val mRomajiMap = mRomajiEntries.toMap()
 
     private val mIntermediateRomajiSet = shortenRomajiSet(mRomajiMap.keys)
     private fun shortenRomajiSet(set: Set<String>): Set<String> {

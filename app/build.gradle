@@ -12,6 +12,10 @@ android {
         versionName "3.7.26"
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+
+        // -PverboseLog=true の debug ビルドでのみ、高頻度の状態ログを出す。
+        def verboseLog = (project.findProperty("verboseLog") ?: "false").toString().toBoolean()
+        buildConfigField "boolean", "VERBOSE_LOG", verboseLog.toString()
     }
 
     buildTypes {

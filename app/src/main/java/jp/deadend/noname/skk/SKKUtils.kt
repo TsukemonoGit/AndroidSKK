@@ -328,6 +328,14 @@ fun dLog(msg: String) {
     if (BuildConfig.DEBUG) android.util.Log.d("SKK", msg)
 }
 
+/**
+ * 高頻度のデバッグログ（1 キーごとの状態など）。
+ * `-PverboseLog=true` を付けた debug ビルドでのみ出力する。
+ */
+fun vLog(msg: String) {
+    if (BuildConfig.DEBUG && BuildConfig.VERBOSE_LOG) android.util.Log.d("SKK", msg)
+}
+
 /** 辞書順設定の 1 エントリ。設定上は「ラベル/ファイル名/」を繰り返した 1 本の文字列。 */
 internal data class DictOrderEntry(val label: String, val name: String)
 
