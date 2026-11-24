@@ -2,6 +2,7 @@ package jp.deadend.noname.skk
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.MotionEvent
 import android.view.View
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,6 +54,23 @@ class CandidatesViewTest {
         view.setContents(listOf("候補"), "")
         assertEquals(listOf("候補"), candidateList(view))
         assertTrue("setContents は描画フラグを待たない", true)
+    }
+
+    @Test
+    fun testMoveWithUnknownPointerIsIgnored() {
+        val service = Robolectric.buildService(SKKService::class.java).create().get()
+        val container = service.onCreateCandidatesView()
+        val view = container.findViewById<View>(R.id.candidates_left)
+        // clickable のままだと View 自身がイベントを消費し、listener の戻り値を
+        // 確認できない。listener 単体の結果を見るために無効化する。
+        view.isClickable = false
+        val event = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_MOVE, 10f, 10f, 0)
+        try {
+            // DOWN を取りこぼしたポインタでも IndexOutOfBounds にせず処理済みにする
+            assertTrue(view.dispatchTouchEvent(event))
+        } finally {
+            event.recycle()
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
