@@ -35,12 +35,12 @@ import jdbm.helper.Tuple
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
 import jp.deadend.noname.dialog.SimpleMessageDialogFragment
 import jp.deadend.noname.dialog.TextInputDialogFragment
+import jp.deadend.noname.dialog.showDialogSafely
 import jp.deadend.noname.skk.databinding.ActivityCheckedTextBinding
 import jp.deadend.noname.skk.databinding.ActivityDictManagerBinding
 import kotlin.math.floor
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -170,7 +170,7 @@ class SKKDictManager : AppCompatActivity() {
                         override fun onNegativeClick() {}
                     }
             )
-            dialog.show(supportFragmentManager, "dialog")
+            showDialogSafely(dialog, "dialog")
         }
     }
 
@@ -232,10 +232,12 @@ class SKKDictManager : AppCompatActivity() {
                                             filesDir
                                     )
                                 } catch (_: IOException) {
-                                    SimpleMessageDialogFragment.newInstance(
+                                    showDialogSafely(
+                                            SimpleMessageDialogFragment.newInstance(
                                                     getString(R.string.error_extracting_dict_failed)
-                                            )
-                                            .show(supportFragmentManager, "dialog")
+                                            ),
+                                            "dialog"
+                                    )
                                 }
                                 mAdapter.submitList(commonDictList)
                                 mDictList = commonDictList
@@ -244,7 +246,7 @@ class SKKDictManager : AppCompatActivity() {
                             override fun onNegativeClick() {}
                         }
                 )
-                dialog.show(supportFragmentManager, "dialog")
+                showDialogSafely(dialog, "dialog")
             }
             else -> return super.onOptionsItemSelected(item)
         }
@@ -295,25 +297,16 @@ class SKKDictManager : AppCompatActivity() {
                                 Log.e("SKK", "downloadDict($type) failed: ${e.message}", e)
                                 if (path.exists()) path.delete()
                                 withContext(Dispatchers.Main) {
-                                    // 画面を離れた直後は状態が保存済みで show() が
-                                    // IllegalStateException を投げる。catch の外へ抜けて
-                                    // アプリが落ちるため、表示可能なときだけ出す。
-                                    if (!isFinishing &&
-                                                    !isDestroyed &&
-                                                    !supportFragmentManager.isStateSaved
-                                    ) {
-                                        try {
+                                    // 画面を離れた直後でも落ちないよう、表示可能なときだけ出す。
+                                    showDialogSafely(
                                             SimpleMessageDialogFragment.newInstance(
-                                                            getString(
-                                                                    R.string.error_download_dict,
-                                                                    type
-                                                            )
+                                                    getString(
+                                                            R.string.error_download_dict,
+                                                            type
                                                     )
-                                                    .show(supportFragmentManager, "dialog")
-                                        } catch (e: IllegalStateException) {
-                                            Log.e("SKK", "failed to show download error", e)
-                                        }
-                                    }
+                                            ),
+                                            "dialog"
+                                    )
                                 }
                             }
                         }
@@ -326,7 +319,7 @@ class SKKDictManager : AppCompatActivity() {
                     }
                 }
         )
-        dialog.show(supportFragmentManager, "dialog")
+        showDialogSafely(dialog, "dialog")
     }
 
     private fun addDict(dictFileBaseName: String?, position: Int, loader: (Int) -> Unit = {}) {
@@ -376,7 +369,7 @@ class SKKDictManager : AppCompatActivity() {
                     }
                 }
         )
-        dialog.show(supportFragmentManager, "dialog")
+        showDialogSafely(dialog, "dialog")
     }
 
     private fun loadCommonDict(file: File, position: Int) {
@@ -386,8 +379,10 @@ class SKKDictManager : AppCompatActivity() {
     private fun loadDict(uri: Uri, position: Int, common: Boolean) {
         val name = getFileNameFromUri(this, uri)
         if (name == null) {
-            SimpleMessageDialogFragment.newInstance(getString(R.string.error_open_dict))
-                    .show(supportFragmentManager, "dialog")
+            showDialogSafely(
+                    SimpleMessageDialogFragment.newInstance(getString(R.string.error_open_dict)),
+                    "dialog"
+            )
             return
         }
 
@@ -404,10 +399,12 @@ class SKKDictManager : AppCompatActivity() {
         val filesDir = filesDir
         val filesList = filesDir?.listFiles()
         if (filesDir == null || filesList == null) {
-            SimpleMessageDialogFragment.newInstance(
+            showDialogSafely(
+                    SimpleMessageDialogFragment.newInstance(
                             getString(R.string.error_access_failed, filesDir)
-                    )
-                    .show(supportFragmentManager, "dialog")
+                    ),
+                    "dialog"
+            )
             return
         }
         if (filesList.any { it.name == "$dictFileBaseName.db" }) {
@@ -426,7 +423,7 @@ class SKKDictManager : AppCompatActivity() {
                         override fun onNegativeClick() {}
                     }
             )
-            dialog.show(supportFragmentManager, "dialog")
+            showDialogSafely(dialog, "dialog")
             return
         }
 
@@ -435,7 +432,7 @@ class SKKDictManager : AppCompatActivity() {
             return
         }
 
-        MainScope().launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             val item = mDictList[position]
             var recMan: RecordManager? = null
             try {
@@ -468,7 +465,7 @@ class SKKDictManager : AppCompatActivity() {
                             if (isGzip) GZIPInputStream(inputStream) else inputStream
                     loadFromTextDict(processedInputStream, charset, false, recMan, btree, false) {
                         if (floor(sqrt(it.toFloat())) % 70 == 0f) {
-                            MainScope().launch {
+                            lifecycleScope.launch {
                                 val newList = mDictList.toMutableList()
                                 newList[position] = Tuple("${item.key} ($it 行目)", item.value)
                                 mAdapter.submitList(newList)
@@ -485,17 +482,16 @@ class SKKDictManager : AppCompatActivity() {
                 }
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
-                    if (e is CharacterCodingException) {
-                        SimpleMessageDialogFragment.newInstance(
-                                        getString(R.string.error_text_dict_coding)
-                                )
-                                .show(supportFragmentManager, "dialog")
-                    } else {
-                        SimpleMessageDialogFragment.newInstance(
-                                        getString(R.string.error_file_load, name)
-                                )
-                                .show(supportFragmentManager, "dialog")
-                    }
+                    val message =
+                            if (e is CharacterCodingException) {
+                                getString(R.string.error_text_dict_coding)
+                            } else {
+                                getString(R.string.error_file_load, name)
+                            }
+                    showDialogSafely(
+                            SimpleMessageDialogFragment.newInstance(message),
+                            "dialog"
+                    )
                     val newList = mDictList.minus(item)
                     mAdapter.submitList(newList)
                     mDictList = newList

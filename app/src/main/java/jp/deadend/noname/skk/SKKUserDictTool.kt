@@ -19,15 +19,16 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import jdbm.helper.Tuple
 import jp.deadend.noname.dialog.ConfirmationDialogFragment
 import jp.deadend.noname.dialog.DictEntryDialogFragment
 import jp.deadend.noname.dialog.SimpleMessageDialogFragment
+import jp.deadend.noname.dialog.showDialogSafely
 import jp.deadend.noname.skk.databinding.ActivityUserDictToolBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -62,7 +63,7 @@ class SKKUserDictTool : AppCompatActivity() {
         mSearchJob.cancel()
         mDatabaseJob.cancel()
         mDatabaseJob.invokeOnCompletion {
-            mDatabaseJob = MainScope().launch(Dispatchers.IO) {
+            mDatabaseJob = lifecycleScope.launch(Dispatchers.IO) {
                 if (!openUserDict()) {
                     mInFileLauncher = false
                     throw CancellationException()
@@ -94,7 +95,7 @@ class SKKUserDictTool : AppCompatActivity() {
                         val completed =
                             dict.importFromText(processedInputStream, charset, isWordList) { count ->
                                 if (floor(sqrt(count.toFloat())) % 50 == 0f) { // 味わい進捗
-                                    MainScope().launch(Dispatchers.Main) {
+                                    lifecycleScope.launch(Dispatchers.Main) {
                                         mSearchView.queryHint = "インポート中 ${count}行目"
                                     }
                                 }
@@ -105,24 +106,25 @@ class SKKUserDictTool : AppCompatActivity() {
                     }
                 } catch (e: IOException) {
                     withContext(Dispatchers.Main) {
-                        if (e is CharacterCodingException) {
-                            SimpleMessageDialogFragment.newInstance(
+                        val message =
+                            if (e is CharacterCodingException) {
                                 getString(R.string.error_text_dict_coding)
-                            ).show(supportFragmentManager, "dialog")
-                        } else {
-                            SimpleMessageDialogFragment.newInstance(
+                            } else {
                                 getString(
                                     R.string.error_file_load,
                                     getFileNameFromUri(this@SKKUserDictTool, uri)
                                 )
-                            ).show(supportFragmentManager, "dialog")
-                        }
+                            }
+                        showDialogSafely(
+                            SimpleMessageDialogFragment.newInstance(message),
+                            "dialog"
+                        )
                     }
                 }
                 closeUserDict()
                 mDatabaseJob.invokeOnCompletion {
                     mInFileLauncher = false
-                    MainScope().launch(Dispatchers.Main) {
+                    lifecycleScope.launch(Dispatchers.Main) {
                         mMenu.setGroupEnabled(0, true)
                         updateListItems()
                     }
@@ -148,7 +150,7 @@ class SKKUserDictTool : AppCompatActivity() {
             ).show()
         }
         mDatabaseJob.invokeOnCompletion {
-            mDatabaseJob = MainScope().launch(Dispatchers.IO) {
+            mDatabaseJob = lifecycleScope.launch(Dispatchers.IO) {
                 if (!openUserDict()) {
                     mInFileLauncher = false
                     throw CancellationException()
@@ -168,21 +170,24 @@ class SKKUserDictTool : AppCompatActivity() {
 
                 mDatabaseJob.invokeOnCompletion {
                     mInFileLauncher = false
-                    MainScope().launch(Dispatchers.Main) {
+                    lifecycleScope.launch(Dispatchers.Main) {
                         updateListItems()
-                        SimpleMessageDialogFragment.newInstance(
-                            if (errorMessage.isEmpty()) {
-                                getString(
-                                    R.string.message_tools_written_to_external_storage,
-                                    getFileNameFromUri(this@SKKUserDictTool, uri)
-                                )
-                            } else {
-                                getString(
-                                    R.string.error_write_to_external_storage,
-                                    errorMessage
-                                )
-                            }
-                        ).show(supportFragmentManager, "dialog")
+                        showDialogSafely(
+                            SimpleMessageDialogFragment.newInstance(
+                                if (errorMessage.isEmpty()) {
+                                    getString(
+                                        R.string.message_tools_written_to_external_storage,
+                                        getFileNameFromUri(this@SKKUserDictTool, uri)
+                                    )
+                                } else {
+                                    getString(
+                                        R.string.error_write_to_external_storage,
+                                        errorMessage
+                                    )
+                                }
+                            ),
+                            "dialog"
+                        )
                     }
                 }
             }
@@ -211,7 +216,7 @@ class SKKUserDictTool : AppCompatActivity() {
         setSupportActionBar(binding.userDictToolToolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        MainScope().launch(Dispatchers.Default) {
+        lifecycleScope.launch(Dispatchers.Default) {
             delay(mDelay) // 無駄に一瞬 emptyView が出るのを防ぐための遅延
             withContext(Dispatchers.Main) {
                 binding.userDictToolList.emptyView = binding.EmptyListItem
@@ -230,7 +235,7 @@ class SKKUserDictTool : AppCompatActivity() {
                             val adapter = parent.adapter as EntryAdapter
                             val item = adapter.getItem(position) ?: return
                             dLog("remove $item from $mDictName")
-                            MainScope().launch(Dispatchers.IO) {
+                            lifecycleScope.launch(Dispatchers.IO) {
                                 try {
                                     if (openUserDict()) {
                                         mUserDict?.removeKey(item.key)
@@ -252,7 +257,7 @@ class SKKUserDictTool : AppCompatActivity() {
 
                         override fun onNegativeClick() {}
                     })
-                dialog.show(supportFragmentManager, "dialog")
+                showDialogSafely(dialog, "dialog")
             }
 
         mSearchView = binding.userDictToolSearch
@@ -284,7 +289,7 @@ class SKKUserDictTool : AppCompatActivity() {
                 }
                 mFoundList.clear()
                 mSearchJob.invokeOnCompletion {
-                    mSearchJob = MainScope().launch(Dispatchers.Default) {
+                    mSearchJob = lifecycleScope.launch(Dispatchers.Default) {
                         mFoundList.addAll(mEntryList.filter {
                             ensureActive() // ここでキャンセルされる
                             if (regex != null) {
@@ -320,7 +325,7 @@ class SKKUserDictTool : AppCompatActivity() {
                 val dialog = DictEntryDialogFragment.newInstance("エントリの追加")
                 dialog.setListener(object : DictEntryDialogFragment.Listener {
                     override fun onPositiveClick(key: String, value: String) {
-                        MainScope().launch(Dispatchers.IO) {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 if (openUserDict()) {
                                     // addEntry は新しい候補を先頭に追加し、重複を除く。
@@ -341,7 +346,7 @@ class SKKUserDictTool : AppCompatActivity() {
                     }
                     override fun onNegativeClick() {}
                 })
-                dialog.show(supportFragmentManager, "add_entry")
+                showDialogSafely(dialog, "add_entry")
                 return true
             }
 
@@ -369,7 +374,7 @@ class SKKUserDictTool : AppCompatActivity() {
 
                         override fun onNegativeClick() {}
                     })
-                cfDialog.show(supportFragmentManager, "dialog")
+                showDialogSafely(cfDialog, "dialog")
                 return true
             }
 
@@ -400,7 +405,7 @@ class SKKUserDictTool : AppCompatActivity() {
                                 updateListItems()
                             }
                         })
-                    cfDialog.show(supportFragmentManager, "dialog")
+                    showDialogSafely(cfDialog, "dialog")
                 }
 
                 else -> updateListItems()
@@ -419,7 +424,7 @@ class SKKUserDictTool : AppCompatActivity() {
     private fun recreateUserDict(extract: Boolean) {
         mAdapter.clear()
 
-        MainScope().launch(Dispatchers.IO) {
+        lifecycleScope.launch(Dispatchers.IO) {
             if (!openUserDict()) return@launch
             try {
                 mUserDict?.recreate(
@@ -449,7 +454,7 @@ class SKKUserDictTool : AppCompatActivity() {
 
     private fun onFailToOpenUserDict() {
         mUserDict = null
-        MainScope().launch(Dispatchers.Main) {
+        lifecycleScope.launch(Dispatchers.Main) {
             ConfirmationDialogFragment.newInstance(getString(R.string.error_tools_open_user_dict))
                 .let {
                     it.setListener(
@@ -463,7 +468,7 @@ class SKKUserDictTool : AppCompatActivity() {
                                 finish()
                             }
                         })
-                    it.show(supportFragmentManager, "dialog")
+                    showDialogSafely(it, "dialog")
                 }
         }
     }
@@ -516,7 +521,7 @@ class SKKUserDictTool : AppCompatActivity() {
         mDatabaseJob.cancel()
         mDatabaseJob.invokeOnCompletion {
             mSearchView.isEnabled = false
-            mDatabaseJob = MainScope().launch(Dispatchers.IO) {
+            mDatabaseJob = lifecycleScope.launch(Dispatchers.IO) {
                 if (!openUserDict()) {
                     withContext(Dispatchers.Main) { mSearchView.isEnabled = true }
                     return@launch

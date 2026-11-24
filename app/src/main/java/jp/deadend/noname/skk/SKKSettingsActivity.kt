@@ -19,12 +19,11 @@ import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import jp.deadend.noname.skk.databinding.ActivitySettingsBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -177,7 +176,7 @@ class SKKSettingsActivity : AppCompatActivity() {
                     putInt(pref.key, key)
                 }
                 pref.setSummary(name)
-                MainScope().launch(Dispatchers.Default) {
+                lifecycleScope.launch {
                     delay(500) // UP で何か実行されてしまわないように少し待つ
                     keyPref = null
                 }
