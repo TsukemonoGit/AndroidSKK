@@ -60,6 +60,23 @@ class SKKUtilsTest {
     }
 
     @Test
+    fun testHankakuZenkakuRoundTrip() {
+        // 代表的な半角・全角文字列で往復して元に戻ること。
+        val hankaku = listOf(
+            "abc", "123", "ｱｲｳ", "ｶｷｸｹｺ", "ｶﾞｷﾞｸﾞ", "ﾊﾟﾋﾟﾌﾟ", "ｦ", "･", "ｰ", "-"
+        )
+        hankaku.forEach { input ->
+            assertEquals(input, zenkaku2hankaku(hankaku2zenkaku(input)))
+        }
+        val zenkaku = listOf(
+            "ａｂｃ", "１２３", "アイウ", "ガギグゲゴ", "パピプペポ", "ヲ", "・", "ー", "－"
+        )
+        zenkaku.forEach { input ->
+            assertEquals(input, hankaku2zenkaku(zenkaku2hankaku(input)))
+        }
+    }
+
+    @Test
     fun testParseDictOrder() {
         assertEquals(
             listOf(DictOrderEntry("ユーザー辞書", "skk_userdict")),

@@ -3,6 +3,7 @@ package jp.deadend.noname.skk
 import jp.deadend.noname.skk.engine.SKKEmojiState
 import jp.deadend.noname.skk.engine.SKKHiraganaState
 import jp.deadend.noname.skk.engine.SKKOkuriganaState
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -40,5 +41,17 @@ class SKKEngineStateTest {
         skkPrefs.preferFlick = false
         // 以前は Exception("invalid state: ...") を投げていた
         service.changeSoftKeyboard(SKKEmojiState)
+    }
+
+    @Test
+    fun testCommitComposingWithoutInputConnectionDoesNotCrash() {
+        val service = Robolectric.buildService(SKKService::class.java).create().get()
+        assertNull(service.currentInputConnection)
+        val engine = service.mEngine
+        engine.mKanjiKey.setLength(0)
+        engine.mComposing.setLength(0)
+
+        // 以前は reset() が currentInputConnection を無チェックで触って NPE になった
+        engine.commitComposing()
     }
 }
