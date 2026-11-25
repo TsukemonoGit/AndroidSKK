@@ -333,8 +333,14 @@ fun dLog(msg: String) {
  * `-PverboseLog=true` を付けた debug ビルドでのみ出力する。
  */
 fun vLog(msg: String) {
-    if (BuildConfig.DEBUG && BuildConfig.VERBOSE_LOG) android.util.Log.d("SKK", msg)
+    if (shouldLogVerbose()) android.util.Log.d("SKK", msg)
 }
+
+/** vLog の出力条件。テストから直接確認できるよう関数に切り出す。 */
+internal fun shouldLogVerbose(
+        debug: Boolean = BuildConfig.DEBUG,
+        verbose: Boolean = BuildConfig.VERBOSE_LOG
+): Boolean = debug && verbose
 
 /** 辞書順設定の 1 エントリ。設定上は「ラベル/ファイル名/」を繰り返した 1 本の文字列。 */
 internal data class DictOrderEntry(val label: String, val name: String)

@@ -1,6 +1,7 @@
 package jp.deadend.noname.skk
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -57,6 +58,32 @@ class SKKUtilsTest {
         assertEquals("ﾟ", zenkaku2hankaku("\u309A"))
         assertEquals("ﾞ", zenkaku2hankaku("\u309B"))
         assertEquals("ﾟ", zenkaku2hankaku("\u309C"))
+    }
+
+    @Test
+    fun testShouldLogVerbose() {
+        // 既定（verbose=false）では高頻度ログを出さない。release では常に出さない。
+        assertFalse(shouldLogVerbose(debug = true, verbose = false))
+        assertTrue(shouldLogVerbose(debug = true, verbose = true))
+        assertFalse(shouldLogVerbose(debug = false, verbose = true))
+        assertFalse(shouldLogVerbose(debug = false, verbose = false))
+    }
+
+    @Test
+    fun testHankakuZenkakuRoundTrip() {
+        // 代表的な半角・全角文字列で往復して元に戻ること。
+        val hankaku = listOf(
+            "abc", "123", "ｱｲｳ", "ｶｷｸｹｺ", "ｶﾞｷﾞｸﾞ", "ﾊﾟﾋﾟﾌﾟ", "ｦ", "･", "ｰ", "-"
+        )
+        hankaku.forEach { input ->
+            assertEquals(input, zenkaku2hankaku(hankaku2zenkaku(input)))
+        }
+        val zenkaku = listOf(
+            "ａｂｃ", "１２３", "アイウ", "ガギグゲゴ", "パピプペポ", "ヲ", "・", "ー", "－"
+        )
+        zenkaku.forEach { input ->
+            assertEquals(input, hankaku2zenkaku(zenkaku2hankaku(input)))
+        }
     }
 
     @Test
