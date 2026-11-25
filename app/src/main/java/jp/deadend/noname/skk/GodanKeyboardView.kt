@@ -160,14 +160,14 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
 
     override fun setKeyState(state: SKKState): GodanKeyboardView {
         val wasASCII = mIsASCII
-        mIsASCII = (state in listOf(SKKAbbrevState, SKKASCIIState, SKKZenkakuState))
+        mIsASCII = (state is SKKAbbrevState || state is SKKASCIIState || state is SKKZenkakuState)
         if (wasASCII != mIsASCII) {
             prepareNewKeyboard(context, width, height, skkPrefs.keyPaddingBottom)
         }
 
         val qKey = checkNotNull(findKeyByCode(keyboard, KEYCODE_GODAN_CHAR_Q)) { "BUG: no Q key" }
         qKey.on =
-                (state !in listOf(SKKASCIIState, SKKEmojiState, SKKZenkakuState) &&
+                (state !is SKKASCIIState && state !is SKKEmojiState && state !is SKKZenkakuState &&
                                 !mService.isHiragana)
                         .also { isKatakana ->
                             listOf(
@@ -193,7 +193,7 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
         val lKey = checkNotNull(findKeyByCode(keyboard, KEYCODE_GODAN_CHAR_L)) { "BUG: no L key" }
         lKey.on = mIsASCII
 
-        isZenkaku = (state === SKKZenkakuState)
+        isZenkaku = (state is SKKZenkakuState)
 
         invalidateAllKeys()
         return this
@@ -740,9 +740,10 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
             KEYCODE_GODAN_PASTE -> mService.pasteClip()
             KEYCODE_GODAN_GOOGLE -> mService.googleTransliterate()
             KEYCODE_GODAN_CHAR_L -> {
-                when (mService.engineState) {
-                    SKKAbbrevState -> mService.processKey(-1010) // かな入力(KanjiState)
-                    SKKASCIIState, SKKZenkakuState -> mService.handleKanaKey()
+                when {
+                    mService.engineState is SKKAbbrevState -> mService.processKey(-1010) // かな入力(KanjiState)
+                    mService.engineState is SKKASCIIState ||
+                            mService.engineState is SKKZenkakuState -> mService.handleKanaKey()
                     else -> mService.processKey(if (isShifted) 'L'.code else 'l'.code)
                 }
             }
@@ -884,7 +885,7 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
                                                     )
                                                     mService.resumeSuggestions()
                                                     // 前の processKey で▼モードになっていたら次で確定してしまうので止まる
-                                                    if (mService.engineState !== SKKChooseState)
+                                                    if (mService.engineState !is SKKChooseState)
                                                             when (popupText[1]) {
                                                                 'っ', 'ッ' -> "xtu"
                                                                 'ん', 'ン' -> "nn"

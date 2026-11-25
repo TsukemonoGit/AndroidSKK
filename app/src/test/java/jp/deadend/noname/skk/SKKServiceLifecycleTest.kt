@@ -4,7 +4,6 @@ import androidx.test.core.app.ApplicationProvider
 import android.content.Intent
 import android.view.KeyEvent
 import jp.deadend.noname.skk.engine.SKKHiraganaState
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -53,7 +52,7 @@ class SKKServiceLifecycleTest {
         f.isAccessible = true
         f.set(service, null)
 
-        assertEquals(SKKHiraganaState, service.engineState)
+        assertTrue(service.engineState is SKKHiraganaState)
         service.onFinishInput()
         service.onKeyDown(KeyEvent.KEYCODE_A, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A))
 

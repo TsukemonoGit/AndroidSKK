@@ -4,7 +4,7 @@ import jp.deadend.noname.skk.createTrimmedBuilder
 import jp.deadend.noname.skk.skkPrefs
 
 // 送り仮名入力中(▽モード，*つき)
-object SKKOkuriganaState : SKKConfirmingState {
+class SKKOkuriganaState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
     override var pendingLambda: (() -> Unit)? = null
@@ -13,10 +13,10 @@ object SKKOkuriganaState : SKKConfirmingState {
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {
             if (skkPrefs.toggleKanaKey) {
-                changeState(SKKASCIIState, true)
+                changeState(context.asciiState, true)
             } else {
                 mComposing.setLength(0)
-                changeState(SKKHiraganaState)
+                changeState(context.hiraganaState)
             }
         }
     }
@@ -38,7 +38,7 @@ object SKKOkuriganaState : SKKConfirmingState {
                     mOkurigana = ""
                     mComposing.setLength(0)
                     setComposingTextSKK(mKanjiKey)
-                    context.changeState(SKKKanjiState)
+                    context.changeState(context.kanjiState)
                     updateSuggestions(mKanjiKey.toString())
                     return
                 }
@@ -81,8 +81,8 @@ object SKKOkuriganaState : SKKConfirmingState {
                     if (!RomajiConverter.isIntermediateRomaji(mComposing.toString())) {
                         mComposing.setLength(0) // これまでの composing は typo とみなしてやり直す
                         if (mKanjiKey.isNotEmpty()) mKanjiKey.deleteCharAt(mKanjiKey.lastIndex)
-                        changeState(SKKKanjiState)
-                        SKKKanjiState.processKey(context, Character.toUpperCase(keyCode))
+                        changeState(context.kanjiState)
+                        context.kanjiState.processKey(context, Character.toUpperCase(keyCode))
                         return
                     }
                     setComposingTextSKK(
@@ -100,7 +100,7 @@ object SKKOkuriganaState : SKKConfirmingState {
             if (mOkurigana.isNotEmpty()) mKanjiKey.append(mOkurigana) // 「っ」とか
             mOkurigana = ""
             setComposingTextSKK(mKanjiKey)
-            changeState(SKKKanjiState)
+            changeState(context.kanjiState)
         }
     }
 
@@ -109,7 +109,7 @@ object SKKOkuriganaState : SKKConfirmingState {
             if (skkPrefs.preferFlick) mComposing.setLength(0) // Flickでアルファベットが残っても困る
             mOkurigana = ""
             if (mKanjiKey.isNotEmpty()) mKanjiKey.deleteCharAt(mKanjiKey.lastIndex) // composing と同じ子音アルファベットのはず
-            changeState(SKKKanjiState)
+            changeState(context.kanjiState)
             setComposingTextSKK("${mKanjiKey}${mComposing}")
         }
 

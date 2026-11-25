@@ -5,22 +5,22 @@ import jp.deadend.noname.skk.hiragana2katakana
 import jp.deadend.noname.skk.skkPrefs
 
 // カタカナモード
-object SKKKatakanaState : SKKState {
+class SKKKatakanaState : SKKState {
     override val isTransient = false
     override val icon =
         R.drawable.ic_katakana
 
     override fun handleKanaKey(context: SKKEngine) {
         if (skkPrefs.toggleKanaKey) {
-            context.changeState(SKKASCIIState, true)
+            context.changeState(context.asciiState, true)
         } else {
-            context.changeState(SKKHiraganaState)
+            context.changeState(context.hiraganaState)
         }
     }
 
     override fun processKey(context: SKKEngine, keyCode: Int) {
         if (context.changeInputMode(keyCode)) return
-        SKKHiraganaState.processKana(context, keyCode) { engine, hiraganaChar ->
+        context.hiraganaState.processKana(context, keyCode) { engine, hiraganaChar ->
             val str = hiragana2katakana(hiraganaChar)
             if (str != null) engine.commitTextSKK(str)
             engine.mComposing.setLength(0)
@@ -28,11 +28,11 @@ object SKKKatakanaState : SKKState {
     }
 
     override fun afterBackspace(context: SKKEngine) {
-        SKKHiraganaState.afterBackspace(context)
+        context.hiraganaState.afterBackspace(context)
     }
 
     override fun handleCancel(context: SKKEngine): Boolean {
-        return SKKHiraganaState.handleCancel(context)
+        return context.hiraganaState.handleCancel(context)
     }
 
     override fun changeToFlick(context: SKKEngine): Boolean {

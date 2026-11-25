@@ -1,6 +1,6 @@
 package jp.deadend.noname.skk.engine
 
-object SKKNarrowingState : SKKConfirmingState {
+class SKKNarrowingState : SKKConfirmingState {
     var isSequential = false
     override val isTransient = true
     override val icon = 0
@@ -13,7 +13,7 @@ object SKKNarrowingState : SKKConfirmingState {
 
     override fun handleKanaKey(context: SKKEngine) {
         super.handleKanaKey(context)
-        SKKChooseState.handleKanaKey(context)
+        context.chooseState.handleKanaKey(context)
     }
 
     override fun processKey(context: SKKEngine, keyCode: Int) {
@@ -36,7 +36,7 @@ object SKKNarrowingState : SKKConfirmingState {
                 else -> if (mSpaceUsed && keyCode == 'x'.code) {
                     chooseAdjacentCandidate(false)
                 } else {
-                    SKKHiraganaState
+                    context.hiraganaState
                         .processKana(this, Character.toLowerCase(keyCode)) { _, hiraganaChar ->
                             mHint.append(hiraganaChar)
                             mComposing.setLength(0)

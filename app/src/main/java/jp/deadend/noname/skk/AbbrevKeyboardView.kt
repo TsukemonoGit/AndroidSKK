@@ -18,7 +18,8 @@ class AbbrevKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         super.setService(service)
         keyboard = Keyboard(context, R.xml.abbrev, mService.mScreenWidth, mService.mScreenHeight)
         onKeyboardActionListener = this
-        setKeyState(SKKAbbrevState)
+        // setKeyState は state の型だけを見るので、エンジン未初期化でも安全な一時インスタンスを渡す
+        setKeyState(SKKAbbrevState())
     }
 
     override fun onDetachedFromWindow() {

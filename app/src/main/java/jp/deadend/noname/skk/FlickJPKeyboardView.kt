@@ -14,7 +14,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.res.ResourcesCompat
 import java.util.EnumSet
 import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
-import jp.deadend.noname.skk.engine.SKKASCIIState
 import jp.deadend.noname.skk.engine.SKKConfirmingState
 import jp.deadend.noname.skk.engine.SKKChooseState
 import jp.deadend.noname.skk.engine.SKKEngine
@@ -25,7 +24,6 @@ import jp.deadend.noname.skk.engine.SKKKatakanaState
 import jp.deadend.noname.skk.engine.SKKNarrowingState
 import jp.deadend.noname.skk.engine.SKKOkuriganaState
 import jp.deadend.noname.skk.engine.SKKState
-import jp.deadend.noname.skk.engine.SKKZenkakuState
 
 class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         KeyboardView(context, attrs), KeyboardView.OnKeyboardActionListener {
@@ -180,9 +178,9 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
 
     override fun setKeyState(state: SKKState): FlickJPKeyboardView {
         isHankaku =
-                when (state) {
-                    SKKHiraganaState, SKKKatakanaState -> false
-                    SKKHanKanaState -> true
+                when {
+                    state is SKKHiraganaState || state is SKKKatakanaState -> false
+                    state is SKKHanKanaState -> true
                     else -> return this
                 }
         mService.kanaState = state
@@ -202,7 +200,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                         else -> continue
                     }
             key.label =
-                    if (state !== SKKHiraganaState) {
+                    if (state !is SKKHiraganaState) {
                         hiragana2katakana(label)!!
                     } else label
         }
@@ -242,13 +240,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
     private fun updateMojiKeyLabelOnShifted() {
         val key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
         key?.label =
-                if (mService.kanaState === SKKHanKanaState) "10\n：カナ>\n声" else "10\n：ｶﾅ>\n声"
+                if (mService.kanaState is SKKHanKanaState) "10\n：カナ>\n声" else "10\n：ｶﾅ>\n声"
     }
 
     private fun updateMojiKeyLabelOnNormal() {
         val key = findKeyByCode(mJPKeyboard, KEYCODE_FLICK_JP_MOJI)
         key?.label =
-                if (mService.kanaState === SKKHiraganaState) "10\n：カナ>\n声"
+                if (mService.kanaState is SKKHiraganaState) "10\n：カナ>\n声"
                 else "10\n：かな>\n声"
     }
 
@@ -509,7 +507,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
      */
     private fun processAKey(flick: EnumSet<FlickState>) {
         if (isLeftCurve(flick)) {
-            if (mService.engineState === SKKChooseState) {
+            if (mService.engineState is SKKChooseState) {
                 mService.handleEnter()
             }
             mService.processKey('x'.code)
@@ -773,7 +771,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         )
         keyMap[flick]?.let { key ->
             if (flick == EnumSet.of(FlickState.NONE)) {
-                mService.processKeyIn(SKKZenkakuState, key)
+                mService.processKeyIn(mService.mEngine.zenkakuState, key)
             } else {
                 when (mService.engineState) {
                     is SKKKanjiState, is SKKOkuriganaState -> {
@@ -1280,7 +1278,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         if (kanaAction == ToKanaKeyProcessor.ToKanaAction.SWITCH_TO_JP) {
             keyboard = mJPKeyboard
             isHankaku = toKanaKeyProcessor.calculateHankakuState(mService.kanaState)
-            if (skkPrefs.preferGodan) mService.changeSoftKeyboard(SKKHiraganaState)
+            if (skkPrefs.preferGodan) mService.changeSoftKeyboard(mService.mEngine.hiraganaState)
         }
     }
 
@@ -1289,13 +1287,13 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
         when (qwertyAction) {
             ToQwertyKeyProcessor.ToQwertyAction.EMOJI -> mService.showEmojiPicker()
             ToQwertyKeyProcessor.ToQwertyAction.ZENKAKU -> {
-                mService.mEngine.changeState(SKKZenkakuState)
-                mService.changeSoftKeyboard(SKKZenkakuState)
+                mService.mEngine.changeState(mService.mEngine.zenkakuState)
+                mService.changeSoftKeyboard(mService.mEngine.zenkakuState)
             }
             ToQwertyKeyProcessor.ToQwertyAction.SYMBOL -> mService.symbolCandidates(isShifted)
             ToQwertyKeyProcessor.ToQwertyAction.ASCII -> {
-                mService.mEngine.changeState(SKKASCIIState)
-                mService.changeSoftKeyboard(SKKASCIIState)
+                mService.mEngine.changeState(mService.mEngine.asciiState)
+                mService.changeSoftKeyboard(mService.mEngine.asciiState)
             }
             ToQwertyKeyProcessor.ToQwertyAction.UNKNOWN -> {}
         }
