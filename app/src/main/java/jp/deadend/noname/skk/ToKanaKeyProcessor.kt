@@ -43,6 +43,6 @@ class ToKanaKeyProcessor {
      * @return 半角モードフラグ
      */
     fun calculateHankakuState(kanaState: Any?): Boolean {
-        return kanaState === SKKHanKanaState
+        return kanaState is SKKHanKanaState
     }
 }

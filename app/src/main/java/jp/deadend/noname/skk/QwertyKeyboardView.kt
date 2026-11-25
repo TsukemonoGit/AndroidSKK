@@ -11,8 +11,6 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
 import jp.deadend.noname.skk.engine.SKKASCIIState
-import jp.deadend.noname.skk.engine.SKKHiraganaState
-import jp.deadend.noname.skk.engine.SKKKatakanaState
 import jp.deadend.noname.skk.engine.SKKState
 import jp.deadend.noname.skk.engine.SKKZenkakuState
 
@@ -334,12 +332,12 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             KEYCODE_QWERTY_TO_LATIN -> {
                 when (isFlicked) {
                     FLICK_NONE -> {
-                        mService.mEngine.changeState(SKKASCIIState)
-                        mService.changeSoftKeyboard(SKKASCIIState)
+                        mService.mEngine.changeState(mService.mEngine.asciiState)
+                        mService.changeSoftKeyboard(mService.mEngine.asciiState)
                     }
                     FLICK_UP -> {
-                        mService.mEngine.changeState(SKKASCIIState)
-                        mService.changeSoftKeyboard(SKKASCIIState)
+                        mService.mEngine.changeState(mService.mEngine.asciiState)
+                        mService.changeSoftKeyboard(mService.mEngine.asciiState)
                     }
                     FLICK_DOWN -> {
                         mService.handleCancel()
@@ -387,16 +385,16 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
         // 一時状態 (候補選択等) は「確定」、ひらがな状態は「かな」、他は「貼付」
         val kanaLabel = if (state.isTransient) "確定" else "かな"
         val flickLabel = if (skkPrefs.preferFlick) "Flick" else "かな"
-        val showKana = state !in listOf(SKKASCIIState, SKKZenkakuState)
+        val showKana = state !is SKKASCIIState && state !is SKKZenkakuState
         kanaKey?.on = showKana
         kanaKey?.label = if (state.isTransient) kanaLabel else if (showKana) flickLabel else "貼付\n☻ $flickLabel \n "
         val qKey = findKeyByCode('q'.code)
-        qKey?.on = state !in listOf(SKKASCIIState, SKKZenkakuState)
+        qKey?.on = state !is SKKASCIIState && state !is SKKZenkakuState
 
         val lKey = findKeyByCode('l'.code)
-        lKey?.on = (state === SKKASCIIState)
+        lKey?.on = (state is SKKASCIIState)
 
-        isZenkaku = (state === SKKZenkakuState)
+        isZenkaku = (state is SKKZenkakuState)
 
         invalidateAllKeys()
         return this

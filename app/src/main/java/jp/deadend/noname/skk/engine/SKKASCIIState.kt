@@ -1,12 +1,12 @@
 package jp.deadend.noname.skk.engine
 
 // ASCIIモード
-object SKKASCIIState : SKKState {
+class SKKASCIIState : SKKState {
     override val isTransient = false
     override val icon = 0
 
     override fun handleKanaKey(context: SKKEngine) {
-        context.changeState(SKKHiraganaState) // Flickにするのは別キーなので内部だけひらがなに
+        context.changeState(context.hiraganaState) // Flickにするのは別キーなので内部だけひらがなに
     }
 
     override fun processKey(context: SKKEngine, keyCode: Int) {

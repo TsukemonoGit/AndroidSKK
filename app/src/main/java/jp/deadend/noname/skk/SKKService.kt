@@ -132,7 +132,7 @@ class SKKService : InputMethodService() {
         get() = (mInputView != mQwertyInputView && mInputView != mAbbrevKeyboardView)
     internal val isTemporaryView: Boolean
         get() = (mInputView == mAbbrevKeyboardView ||
-                (engineReady && mEngine.state === SKKZenkakuState))
+                (engineReady && mEngine.state is SKKZenkakuState))
     internal var leftOffset = 0
 
     // 画面サイズが実際に変わる前に onConfigurationChanged で受け取ってサイズ計算
@@ -149,15 +149,17 @@ class SKKService : InputMethodService() {
     private var mStreamVolume = 0
 
     internal lateinit var mEngine: SKKEngine
+    // エンジン未初期化時の比較用。状態を持たないので 1 つ共有してよい。
+    private val mFallbackHiraganaState = SKKHiraganaState()
     private val engineReady: Boolean
         get() = ::mEngine.isInitialized
     internal val engineState: SKKState
         get() {
             // 辞書オープン失敗時は mEngine が未初期化のままフレームワークの
             // コールバックが来ることがある。ここで落とさない。
-            if (!engineReady) return SKKHiraganaState
+            if (!engineReady) return mFallbackHiraganaState
             val rawState = mEngine.state
-            return if (rawState === SKKEmojiState) mEngine.oldState else rawState
+            return if (rawState is SKKEmojiState) mEngine.oldState else rawState
         }
     // B3修正: null許容型に変更
     private var mUserDict: SKKUserDictionary? = null
@@ -165,9 +167,9 @@ class SKKService : InputMethodService() {
     private var mHistoryDict: SKKHistoryDictionary? = null
 
     internal val isHiragana: Boolean
-        get() = kanaState === SKKHiraganaState
+        get() = kanaState is SKKHiraganaState
     internal var kanaState: SKKState
-        get() = if (engineReady) mEngine.kanaState else SKKHiraganaState
+        get() = if (engineReady) mEngine.kanaState else mFallbackHiraganaState
         set(state) {
             if (!engineReady) return
             val oldState = kanaState
@@ -627,9 +629,10 @@ class SKKService : InputMethodService() {
         )
                 mGodanInputView?.setKeyState(engineState)
         else
-                when (engineState) {
-                    SKKASCIIState, SKKZenkakuState -> mQwertyInputView
-                    SKKAbbrevState -> mAbbrevKeyboardView
+                when {
+                    engineState is SKKASCIIState || engineState is SKKZenkakuState ->
+                            mQwertyInputView
+                    engineState is SKKAbbrevState -> mAbbrevKeyboardView
                     else ->
                             when {
                                 !skkPrefs.preferFlick -> mQwertyInputView
@@ -738,13 +741,14 @@ class SKKService : InputMethodService() {
             when (keyboardType) {
                 // 日本語にする
                 "flick-jp" -> {
-                    if (engineState in listOf(SKKAbbrevState, SKKASCIIState, SKKZenkakuState) ||
+                    if (engineState is SKKAbbrevState || engineState is SKKASCIIState ||
+                                    engineState is SKKZenkakuState ||
                                     mInputView !in listOf(mFlickJPInputView, mGodanInputView) ||
                                     (mInputView?.equals(mFlickJPInputView) == true &&
                                             mInputView?.keyboard !==
                                                     mFlickJPInputView?.mJPKeyboard)
                     ) {
-                        mEngine.changeState(SKKHiraganaState)
+                        mEngine.changeState(mEngine.hiraganaState)
                     }
                 }
 
@@ -962,7 +966,7 @@ class SKKService : InputMethodService() {
      */
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (!engineReady) return super.onKeyUp(keyCode, event)
-        if (mEngine.state === SKKASCIIState) {
+        if (mEngine.state is SKKASCIIState) {
             return super.onKeyUp(keyCode, event)
         }
 
@@ -1012,7 +1016,7 @@ class SKKService : InputMethodService() {
             return true
         }
 
-        if (engineState === SKKASCIIState && !mEngine.isRegistering) {
+        if (engineState is SKKASCIIState && !mEngine.isRegistering) {
             val result = super.onKeyDown(keyCode, event)
             updateSuggestionsASCII()
             return result
@@ -1028,7 +1032,7 @@ class SKKService : InputMethodService() {
         }
 
         if (keyCode == KeyEvent.KEYCODE_TAB) {
-            if (engineState === SKKKanjiState || engineState === SKKAbbrevState) {
+            if (engineState is SKKKanjiState || engineState is SKKAbbrevState) {
                 var isShifted = false
                 if (mStickyShift) {
                     if (mShiftKey.useState() and KeyEvent.META_SHIFT_ON != 0) {
@@ -1142,14 +1146,14 @@ class SKKService : InputMethodService() {
         dLog("handleDpad(${KeyEvent.keyCodeToString(keyCode)}) in ${mEngine.state}")
         if (mStickyShift) mShiftKey.useState()
         when {
-            mEngine.state === SKKChooseState -> {
+            mEngine.state is SKKChooseState -> {
                 when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> mEngine.chooseAdjacentCandidate(false)
                     KeyEvent.KEYCODE_DPAD_RIGHT -> mEngine.chooseAdjacentCandidate(true)
                 }
                 return true
             }
-            mEngine.state === SKKEmojiState -> {
+            mEngine.state is SKKEmojiState -> {
                 when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> mEngine.chooseAdjacentSuggestion(false)
                     KeyEvent.KEYCODE_DPAD_RIGHT -> mEngine.chooseAdjacentSuggestion(true)
@@ -1393,21 +1397,22 @@ class SKKService : InputMethodService() {
                     // SKKASCIIState で Qwerty にならない唯一のケース
                     mGodanInputView?.setKeyState(state)
                 } else
-                        when (state) {
-                            SKKASCIIState -> {
+                        when {
+                            state is SKKASCIIState -> {
                                 mQwertyInputView?.apply {
                                     keyboard = mLatinKeyboard
                                     setKeyState(engineState)
                                 }
                             }
-                            SKKKanjiState, SKKHiraganaState, SKKKatakanaState, SKKHanKanaState ->
+                            state is SKKKanjiState || state is SKKHiraganaState ||
+                                    state is SKKKatakanaState || state is SKKHanKanaState ->
                                     when {
                                         !skkPrefs.preferFlick -> mQwertyInputView
                                         skkPrefs.preferGodan -> mGodanInputView
                                         else -> mFlickJPInputView
                                     }?.setKeyState(state)
-                            SKKAbbrevState -> mAbbrevKeyboardView?.setKeyState(state)
-                            SKKZenkakuState -> mQwertyInputView?.setKeyState(state)
+                            state is SKKAbbrevState -> mAbbrevKeyboardView?.setKeyState(state)
+                            state is SKKZenkakuState -> mQwertyInputView?.setKeyState(state)
                             else -> {
                                 dLog("changeSoftKeyboard: invalid state: $state")
                                 null

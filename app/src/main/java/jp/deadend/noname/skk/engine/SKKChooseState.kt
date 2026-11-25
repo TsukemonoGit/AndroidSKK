@@ -4,7 +4,7 @@ import jp.deadend.noname.skk.isAlphabet
 import jp.deadend.noname.skk.skkPrefs
 
 // 変換候補選択中(▼モード)
-object SKKChooseState : SKKConfirmingState {
+class SKKChooseState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
     override var pendingLambda: (() -> Unit)? = null
@@ -15,9 +15,9 @@ object SKKChooseState : SKKConfirmingState {
         context.apply {
             pickCurrentCandidate() // kanaState になる (カタカナかもしれない)
             if (skkPrefs.toggleKanaKey) {
-                changeState(SKKASCIIState, true)
+                changeState(context.asciiState, true)
             } else {
-                changeState(SKKHiraganaState)
+                changeState(context.hiraganaState)
             }
         }
     }
@@ -32,7 +32,7 @@ object SKKChooseState : SKKConfirmingState {
                 '>'.code -> {
                     // 接尾辞入力
                     pickCurrentCandidate()
-                    changeState(SKKKanjiState) // Abbrevキーボードのことは無視
+                    changeState(context.kanjiState) // Abbrevキーボードのことは無視
                     mKanjiKey.append('>')
                     setComposingTextSKK(mKanjiKey)
                 }
@@ -43,7 +43,7 @@ object SKKChooseState : SKKConfirmingState {
                     changeInputMode(keyCode)
                 }
 
-                ':'.code -> changeState(SKKNarrowingState) // Abbrevキーボードのことは無視
+                ':'.code -> changeState(context.narrowingState) // Abbrevキーボードのことは無視
                 else -> {
                     // 暗黙の確定
                     pickCurrentCandidate()
@@ -67,11 +67,11 @@ object SKKChooseState : SKKConfirmingState {
                 changeState(kanaState)
             } else {
                 if (isAlphabet(mKanjiKey[0].code)) { // Abbrevモード
-                    changeState(SKKAbbrevState)
+                    changeState(context.abbrevState)
                 } else { // 漢字変換中
                     mComposing.setLength(0) // 最初から空のはずだけど念のため
                     mOkurigana = "" // これは入っている可能性がある
-                    changeState(SKKKanjiState) // Abbrevの可能性はない
+                    changeState(context.kanjiState) // Abbrevの可能性はない
                     val maybeComposing = mKanjiKey.lastOrNull() ?: 0.toChar()
                     if (isAlphabet(maybeComposing.code)) {
                         mKanjiKey.deleteCharAt(mKanjiKey.lastIndex) // 送りがなのアルファベットを削除

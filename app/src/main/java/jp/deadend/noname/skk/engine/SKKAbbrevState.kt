@@ -4,13 +4,13 @@ import jp.deadend.noname.skk.R
 import jp.deadend.noname.skk.hankaku2zenkaku
 
 // Abbrevモード(▽モード)
-object SKKAbbrevState : SKKState {
+class SKKAbbrevState : SKKState {
     override val isTransient = true
     override val icon =
         R.drawable.ic_abbrev
 
     override fun handleKanaKey(context: SKKEngine) {
-        context.changeState(SKKHiraganaState)
+        context.changeState(context.hiraganaState)
     }
 
     override fun processKey(context: SKKEngine, keyCode: Int) {
@@ -27,7 +27,7 @@ object SKKAbbrevState : SKKState {
                 }
 
                 -1010 -> {
-                    changeState(SKKKanjiState)
+                    changeState(context.kanjiState)
                 }
 
                 else -> {
@@ -48,7 +48,7 @@ object SKKAbbrevState : SKKState {
 
     override fun handleCancel(context: SKKEngine): Boolean {
         context.mKanjiKey.setLength(0) // 確定させない
-        context.changeState(SKKHiraganaState)
+        context.changeState(context.hiraganaState)
         return true
     }
 

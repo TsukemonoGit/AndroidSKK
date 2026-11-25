@@ -45,14 +45,14 @@ class ToKanaKeyProcessorTest {
     @Test
     fun testCalculateHankakuState_hanKana() {
         // ハングアナ状態 → 半角モード
-        val result = processor.calculateHankakuState(SKKHanKanaState)
+        val result = processor.calculateHankakuState(SKKHanKanaState())
         assertEquals(true, result)
     }
 
     @Test
     fun testCalculateHankakuState_hiragana() {
         // ひらがな状態 → 全角モード
-        val result = processor.calculateHankakuState(SKKHiraganaState)
+        val result = processor.calculateHankakuState(SKKHiraganaState())
         assertEquals(false, result)
     }
 

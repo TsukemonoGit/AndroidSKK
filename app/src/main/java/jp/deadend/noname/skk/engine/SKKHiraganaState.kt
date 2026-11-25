@@ -5,13 +5,13 @@ import jp.deadend.noname.skk.isAlphabet
 import jp.deadend.noname.skk.skkPrefs
 
 // ひらがなモード
-object SKKHiraganaState : SKKState {
+class SKKHiraganaState : SKKState {
     override val isTransient = false
     override val icon =
         R.drawable.ic_hiragana
 
     override fun handleKanaKey(context: SKKEngine) {
-        if (skkPrefs.toggleKanaKey) context.changeState(SKKASCIIState, true)
+        if (skkPrefs.toggleKanaKey) context.changeState(context.asciiState, true)
     }
 
     internal fun processKana(
@@ -33,8 +33,8 @@ object SKKHiraganaState : SKKState {
             if (isUpper) {
                 // 漢字変換候補入力の開始。KanjiModeへの移行
                 // すでに composing がある場合はそこから KanjiMode だったものとする (mA = Ma)
-                changeState(SKKKanjiState)
-                SKKKanjiState.processKey(context, codeLower)
+                changeState(context.kanjiState)
+                context.kanjiState.processKey(context, codeLower)
             } else {
                 mComposing.append(codeLower.toChar())
                 // 全角にする記号ならば全角，そうでなければローマ字変換

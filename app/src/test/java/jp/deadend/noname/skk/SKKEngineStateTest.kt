@@ -1,8 +1,5 @@
 package jp.deadend.noname.skk
 
-import jp.deadend.noname.skk.engine.SKKEmojiState
-import jp.deadend.noname.skk.engine.SKKHiraganaState
-import jp.deadend.noname.skk.engine.SKKOkuriganaState
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,14 +20,14 @@ class SKKEngineStateTest {
         engine.mComposing.setLength(0)
 
         // 以前は deleteCharAt(-1) で StringIndexOutOfBoundsException になった
-        SKKOkuriganaState.afterBackspace(engine)
+        engine.okuriganaState.afterBackspace(engine)
     }
 
     @Test
     fun testPickCandidateInUnexpectedStateDoesNotThrow() {
         val service = Robolectric.buildService(SKKService::class.java).create().get()
         val engine = service.mEngine
-        engine.changeState(SKKHiraganaState)
+        engine.changeState(engine.hiraganaState)
         // 以前は RuntimeException("cannot pick candidate in ...") を投げていた
         engine.pickCandidatesViewManually(0)
     }
@@ -40,7 +37,7 @@ class SKKEngineStateTest {
         val service = Robolectric.buildService(SKKService::class.java).create().get()
         skkPrefs.preferFlick = false
         // 以前は Exception("invalid state: ...") を投げていた
-        service.changeSoftKeyboard(SKKEmojiState)
+        service.changeSoftKeyboard(service.mEngine.emojiState)
     }
 
     @Test

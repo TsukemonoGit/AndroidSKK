@@ -8,7 +8,7 @@ import jp.deadend.noname.skk.skkPrefs
 import jp.deadend.noname.skk.zenkaku2hankaku
 
 // 漢字変換のためのひらがな入力中(▽モード)
-object SKKKanjiState : SKKConfirmingState {
+class SKKKanjiState : SKKConfirmingState {
     override val isTransient = true
     override val icon = 0
     override var pendingLambda: (() -> Unit)? = null
@@ -17,9 +17,9 @@ object SKKKanjiState : SKKConfirmingState {
     override fun handleKanaKey(context: SKKEngine) {
         context.apply {
             if (skkPrefs.toggleKanaKey) {
-                changeState(SKKASCIIState, true)
+                changeState(context.asciiState, true)
             } else {
-                changeState(SKKHiraganaState)
+                changeState(context.hiraganaState)
             }
         }
     }
@@ -74,7 +74,7 @@ object SKKKanjiState : SKKConfirmingState {
                 'q'.code -> {
                     // カタカナ変換
                     if (mKanjiKey.isNotEmpty()) {
-                        val str = if (kanaState == SKKHiraganaState) {
+                        val str = if (kanaState is SKKHiraganaState) {
                             hiragana2katakana(mKanjiKey.toString())
                         } else {
                             mKanjiKey.toString() // すでにひらがななのでそのまま
@@ -88,7 +88,7 @@ object SKKKanjiState : SKKConfirmingState {
                 17 /* Ctrl-Q */ -> {
                     if (mKanjiKey.isNotEmpty()) {
                         val zenkakuKatakana = hiragana2katakana(mKanjiKey.toString())
-                        val str = if (kanaState === SKKHanKanaState) {
+                        val str = if (kanaState is SKKHanKanaState) {
                             zenkakuKatakana // 半角カナで半角を出すのはエンターだから Ctrl-Q は全角カナが自然だと思う
                         } else {
                             zenkaku2hankaku(zenkakuKatakana)
@@ -142,7 +142,7 @@ object SKKKanjiState : SKKConfirmingState {
                             setComposingTextSKK(
                                 createTrimmedBuilder(mKanjiKey).append('*').append(mComposing)
                             )
-                            changeState(SKKOkuriganaState)
+                            changeState(context.okuriganaState)
                         }
                     } else {
                         // 未確定
@@ -158,7 +158,7 @@ object SKKKanjiState : SKKConfirmingState {
                         if (hiraganaChar != null) {
                             mComposing.setLength(0)
                             mKanjiKey.append(
-                                if (kanaState == SKKHiraganaState) {
+                                if (kanaState is SKKHiraganaState) {
                                     hiraganaChar
                                 } else {
                                     katakana2hiragana(hiraganaChar)
