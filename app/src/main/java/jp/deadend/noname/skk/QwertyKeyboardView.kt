@@ -6,7 +6,6 @@ import android.util.AttributeSet
 import android.util.SparseArray
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.Gravity
 import android.widget.PopupWindow
 import android.widget.TextView
 import jp.deadend.noname.skk.databinding.PopupFlickguideBinding
@@ -427,16 +426,11 @@ class QwertyKeyboardView : KeyboardView, KeyboardView.OnKeyboardActionListener {
             val popup = mPopup
             if (popup != null) {
                 if (mFixedPopup) {
-                    popup.showAtLocation(
-                        this,
-                        Gravity.NO_GRAVITY,
-                        mFixedPopupPos[0],
-                        mFixedPopupPos[1]
-                    )
+                    showPopupSafely(popup, this, mFixedPopupPos[0], mFixedPopupPos[1])
                 } else {
-                    popup.showAtLocation(
+                    showPopupSafely(
+                        popup,
                         this,
-                        Gravity.NO_GRAVITY,
                         flickStartX.toInt() + mPopupOffset[0],
                         flickStartY.toInt() + mPopupOffset[1]
                     )

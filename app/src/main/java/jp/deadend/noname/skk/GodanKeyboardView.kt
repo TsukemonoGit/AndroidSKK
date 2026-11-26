@@ -598,16 +598,11 @@ class GodanKeyboardView(context: Context, attrs: AttributeSet?) :
         if (mUsePopup) {
             val popup = checkNotNull(mPopup) { "BUG: popup is null!!" }
             if (mFixedPopup) {
-                popup.showAtLocation(
-                        this,
-                        android.view.Gravity.NO_GRAVITY,
-                        mFixedPopupPos[0],
-                        mFixedPopupPos[1]
-                )
+                showPopupSafely(popup, this, mFixedPopupPos[0], mFixedPopupPos[1])
             } else {
-                popup.showAtLocation(
+                showPopupSafely(
+                        popup,
                         this,
-                        android.view.Gravity.NO_GRAVITY,
                         mFlickStartX.toInt() + mPopupOffset[0],
                         mFlickStartY.toInt() + mPopupOffset[1]
                 )
