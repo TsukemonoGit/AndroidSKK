@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.util.AttributeSet
+import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.Gravity
@@ -20,6 +21,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.WindowManager
 import android.widget.PopupWindow
 import android.widget.TextView
 import android.widget.Toast
@@ -457,7 +459,9 @@ open class KeyboardView @JvmOverloads constructor(
                         val sizeFactors = when (numLines) {
                             3 -> listOf(.27f, .7f, .27f) // Godan以外でも中央の行を大きくする (「わ」「abc」等)
                             1 -> listOf(1f)
-                            else -> throw IndexOutOfBoundsException("key label has $numLines lines")
+                            // 想定外の行数（2行など）でも描画中にIMEを落とさないよう、
+                            // キー内に収まるよう均等配分してフォールバックする。
+                            else -> List(numLines) { 1f / numLines }
                         }.map { it * labelZoom }
                         val sizeDefault = mPaint.textSize
                         val lineScale = 1.05f // 行間
@@ -714,12 +718,9 @@ open class KeyboardView @JvmOverloads constructor(
 
             mPreviewPopup.width = popupWidth
             mPreviewPopup.height = popupHeight
-            mPreviewPopup.showAtLocation(
-                mPopupParent, Gravity.NO_GRAVITY,
-                popupPreviewX, popupPreviewY
-            )
-
-            previewText.visibility = VISIBLE
+            if (showPopupSafely(mPreviewPopup, mPopupParent, popupPreviewX, popupPreviewY)) {
+                previewText.visibility = VISIBLE
+            }
         }
     }
 
@@ -822,7 +823,7 @@ open class KeyboardView @JvmOverloads constructor(
             mPopupKeyboard.contentView = miniKeyboardContainer
             mPopupKeyboard.width = miniKeyboardContainer.measuredWidth
             mPopupKeyboard.height = miniKeyboardContainer.measuredHeight
-            mPopupKeyboard.showAtLocation(this, Gravity.NO_GRAVITY, x, y)
+            if (!showPopupSafely(mPopupKeyboard, this, x, y)) return true
             mMiniKeyboardOnScreen = true
             //miniKeyboardView.onTouchEvent(getTranslatedEvent(me));
             invalidateAllKeys()
@@ -1085,6 +1086,29 @@ open class KeyboardView @JvmOverloads constructor(
     public override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         closing()
+    }
+
+    /**
+     * PopupWindow を安全に表示する。
+     *
+     * IME のウィンドウが破棄された直後（トークンが無効）に showAtLocation() を呼ぶと
+     * BadTokenException でプロセスごと落ちるため、アンカーがウィンドウに
+     * アタッチされているかを確認し、例外も握りつぶして表示だけ諦める。
+     */
+    protected fun showPopupSafely(
+        popup: PopupWindow,
+        anchor: View,
+        x: Int,
+        y: Int
+    ): Boolean {
+        if (!anchor.isAttachedToWindow || anchor.windowToken == null) return false
+        return try {
+            popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+            true
+        } catch (e: WindowManager.BadTokenException) {
+            Log.w("SKK", "popup show skipped: ${e.message}")
+            false
+        }
     }
 
     private fun dismissPopupKeyboard() {

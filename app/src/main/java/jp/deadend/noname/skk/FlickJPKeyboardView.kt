@@ -1102,12 +1102,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
             if (mFixedPopup) {
                 // 固定位置: 初回のみ表示し、以降は位置を変えない
                 if (!popup.isShowing) {
-                    popup.showAtLocation(
-                            this,
-                            android.view.Gravity.NO_GRAVITY,
-                            mFixedPopupPos[0],
-                            mFixedPopupPos[1]
-                    )
+                    showPopupSafely(popup, this, mFixedPopupPos[0], mFixedPopupPos[1])
                 }
             } else {
                 // 非固定位置: 表示済みなら位置だけ更新する
@@ -1116,7 +1111,7 @@ class FlickJPKeyboardView(context: Context, attrs: AttributeSet?) :
                 if (popup.isShowing) {
                     popup.update(x, y, popup.width, popup.height)
                 } else {
-                    popup.showAtLocation(this, android.view.Gravity.NO_GRAVITY, x, y)
+                    showPopupSafely(popup, this, x, y)
                 }
             }
         }
