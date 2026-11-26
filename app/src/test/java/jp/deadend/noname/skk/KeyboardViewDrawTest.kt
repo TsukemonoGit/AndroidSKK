@@ -1,14 +1,19 @@
 package jp.deadend.noname.skk
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
+import android.view.WindowManager
 import android.widget.PopupWindow
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -47,5 +52,31 @@ class KeyboardViewDrawTest {
 
         // ウィンドウトークンが無い状態では showAtLocation を呼ばず false を返す。
         assertFalse(view.show(popup))
+    }
+
+    @Test
+    fun testBadTokenExceptionFromShowAtLocationIsCaught() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val view = object : KeyboardView(activity, null) {
+            fun show(popup: PopupWindow): Boolean = showPopupSafely(popup, this, 0, 0)
+        }
+        activity.setContentView(view)
+
+        // 前提: 接続済みでウィンドウトークンが存在すること。
+        assertTrue(view.isAttachedToWindow)
+        assertNotNull(view.windowToken)
+
+        var showAtLocationCalled = false
+        val popup = object : PopupWindow(View(activity)) {
+            override fun showAtLocation(parent: View?, gravity: Int, x: Int, y: Int) {
+                showAtLocationCalled = true
+                throw WindowManager.BadTokenException("test")
+            }
+        }
+
+        // 例外が外へ出ず false が返ること。
+        assertFalse(view.show(popup))
+        // 早期終了ではなく showAtLocation まで到達していること。
+        assertTrue(showAtLocationCalled)
     }
 }
